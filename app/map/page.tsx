@@ -4,11 +4,11 @@ export default function Page() {
   const theme = getTheme();
 
   const Layout = theme.components.Layout;
-  const Home = theme.components.Home;
+  const Map = theme.components.Map;
 
   return (
     <Layout>
-      <Home />
+      <Map />
     </Layout>
   );
 }

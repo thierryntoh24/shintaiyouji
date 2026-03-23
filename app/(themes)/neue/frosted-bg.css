@@ -1,0 +1,112 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   frosted-bg.css
+   A reusable "frosted image" background utility inspired by the heavy-blur +
+   grain aesthetic seen in apps like Popcorn.
+
+   Usage:
+     Add the `frosted-bg` utility class to any element, then set the image via
+     a CSS custom property so you can swap it per-instance without touching CSS.
+
+     HTML / JSX:
+       <div class="frosted-bg" style="--frosted-image: url('/your-photo.jpg')">
+         …content…
+       </div>
+
+     Or via a Tailwind arbitrary value:
+       <div class="frosted-bg [--frosted-image:url('/your-photo.jpg')]">
+
+   Layers (bottom → top):
+     1. The source image, blurred heavily via backdrop-filter / a pseudo-element
+     2. A soft semi-transparent white wash to desaturate and lighten
+     3. An SVG grain/noise texture at low opacity for the film-grain look
+     4. Your content (children)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  .frosted-bg {
+    /* Swap the image per-instance:
+         style="--frosted-image: url('/clouds.jpg')"
+       or via Tailwind:
+         className="frosted-bg [--frosted-image:url('/clouds.jpg')]"          */
+    --frosted-image: none;
+
+    /* Blur intensity — override per-instance if needed */
+    --frosted-blur: 40px;
+
+    /* White wash strength — 0 = no wash, 1 = fully white */
+    --frosted-wash: 0.45;
+
+    /* Grain opacity */
+    --frosted-grain: 0.55;
+
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+
+  /* ── Layer 1: blurred image ─────────────────────────────────────────────── */
+  .frosted-bg::before {
+    content: "";
+    position: absolute;
+    inset: -10%; /* overshoot so blur edges don't show */
+    z-index: -2;
+    background-image: var(--frosted-image);
+    background-size: cover;
+    background-position: center;
+    filter: blur(var(--frosted-blur)) saturate(1.2);
+  }
+
+  /* ── Layer 2: white wash ────────────────────────────────────────────────── */
+  .frosted-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: rgba(255 255 255 / var(--frosted-wash));
+  }
+
+  /* ── Layer 3: grain ─────────────────────────────────────────────────────── */
+  /*
+     The grain is injected via a tiny inline SVG data URI fed through a
+     CSS custom property on `.frosted-bg [data-grain]`, but because
+     pseudo-elements can only stack two layers, we use a real child element.
+
+     Add <span data-frosted-grain aria-hidden="true" /> as the first child,
+     OR use the `.frosted-grain` companion utility on any child element.
+  */
+  .frosted-grain {
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: 0; /* sits above the washed image, below content */
+    opacity: var(--frosted-grain);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 128px 128px;
+    mix-blend-mode: overlay;
+  }
+
+  /* ── Variants ───────────────────────────────────────────────────────────── */
+
+  /* Lighter blur — good for subtle backgrounds */
+  .frosted-bg-sm {
+    --frosted-blur: 20px;
+    --frosted-wash: 0.3;
+    --frosted-grain: 0.35;
+  }
+
+  /* Heavier blur — maximum dreaminess */
+  .frosted-bg-xl {
+    --frosted-blur: 70px;
+    --frosted-wash: 0.55;
+    --frosted-grain: 0.65;
+  }
+
+  /* Dark wash instead of white — for moody/dark themes */
+  .frosted-bg-dark::after {
+    background: rgba(0 0 0 / var(--frosted-wash));
+  }
+  .frosted-bg-dark {
+    --frosted-wash: 0.35;
+  }
+}
