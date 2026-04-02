@@ -1,4 +1,4 @@
-# 真の時間 — shin-no-jikan
+# 真太陽時 — しんたいようじ
 
 **True Solar Time, for wherever you are.**
 

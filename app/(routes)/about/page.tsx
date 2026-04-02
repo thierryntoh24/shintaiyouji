@@ -76,7 +76,7 @@ export default function About() {
                 "laptop:col-start-6",
               )}
             >
-              <span title="hiragana">/ またいようじ</span>
+              <span title="hiragana">/ しんたいようじ</span>
               <span title="katakana">/ シンタイヨウジ</span>
               <span title="romanji">/ Shintaiyōji</span>
             </div>
