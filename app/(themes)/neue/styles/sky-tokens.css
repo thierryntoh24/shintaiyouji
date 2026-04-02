@@ -1,0 +1,373 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   sky-tokens.css
+   Sky-phase-aware design token system.
+
+   HOW IT WORKS
+   ────────────
+   The sky system sets a `data-sky` attribute on the root content wrapper
+   each second. CSS [data-sky="<phase>"] blocks override the token values.
+   Everything downstream — glass cards, inputs, radios, separators — reads
+   from the tokens. Nothing hardcodes a color directly.
+
+   DATA ATTRIBUTES
+   ───────────────
+   data-sky="<phase>"     — set by SkyCanvas / useSkyGradient on the wrapper
+   data-sky-dark          — present when phase is night/twilight family
+   data-sky-light         — present when phase is morning/midday/afternoon
+
+   TOKEN GROUPS
+   ────────────
+   --sky-fg-*             — foreground text colors
+   --sky-ui-*             — interactive element colors (borders, rings, etc.)
+   --sky-glass-*          — glass card overrides (plugs into glass-card utility)
+   --sky-overlay-*        — disabled state, placeholder, divider
+
+   USAGE
+   ─────
+   // In your page component:
+   <div
+     data-sky={sky.phase}
+     data-sky-dark={sky.isDark || undefined}
+     style={sky.cssVars}          ← from computeSkyState (see sky-system.ts)
+     className="relative …"
+   >
+     <SkyCanvas sky={sky} />
+     …content…
+   </div>
+
+   // In your components — just use the tokens:
+   <input className="border-[var(--sky-ui-border)] focus:border-[var(--sky-ui-focus)]" />
+   <Separator className="bg-[var(--sky-ui-separator)]" />
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Base defaults (daytime) ──────────────────────────────────────────────── */
+
+:root,
+[data-sky] {
+  /* ── Foreground text ─────────────────────────────────────── */
+  --sky-fg: #000000d9; /* primary text */
+  --sky-fg-secondary: #00000080; /* captions, labels */
+  --sky-fg-tertiary: #0000004d; /* placeholders, hints */
+  --sky-fg-disabled: #00000033; /* disabled text */
+  --sky-fg-inverse: #ffffffe6; /* text on dark surfaces */
+
+  /* ── Interactive element borders ───────────────────────── */
+  --sky-ui-border: #0000001f; /* input / card borders */
+  --sky-ui-border-hover: #00000040; /* hovered border */
+  --sky-ui-focus: #000000b3; /* focus ring */
+  --sky-ui-separator: #0000000f; /* <hr>, dividers */
+
+  /* ── Control fills ──────────────────────────────────────── */
+  --sky-ui-track: #0000000f; /* switch track off, radio bg */
+  --sky-ui-track-on: #000000cc; /* switch track on */
+  --sky-ui-thumb: #ffffff; /* switch thumb */
+  --sky-ui-indicator: #000000cc; /* radio/checkbox indicator */
+  --sky-ui-muted-fill: #00000008; /* muted button bg */
+  --sky-ui-muted-hover: #00000014; /* muted button hover */
+
+  /* ── Glass card tokens ──────────────────────────────────── */
+  --glass-bg: #ffffff6b;
+  --glass-border: #ffffff80;
+  --glass-shadow-ring: 0 0 0 0.5px #0000000f;
+  --glass-shadow-ambient: 0 4px 12px #0000000f;
+  --glass-shadow-drop: 0 12px 40px #0000001a;
+  --glass-sheen-from: #ffffff8c;
+  --glass-sheen-to: #fff0;
+  --glass-blur: 20px;
+  --glass-saturation: 180%;
+  --glass-radius: 16px;
+  --glass-text: var(--sky-fg);
+  --glass-text-secondary: var(--sky-fg-secondary);
+}
+
+/* ── Night family (deep-night, astronomical, nautical, evening, night) ───── */
+
+[data-sky="deep-night"],
+[data-sky="astronomical"],
+[data-sky="nautical"],
+[data-sky="evening"],
+[data-sky="night"] {
+  --sky-fg: #ffffffe6;
+  --sky-fg-secondary: #ffffff80;
+  --sky-fg-tertiary: #ffffff4d;
+  --sky-fg-disabled: #ffffff2e;
+  --sky-fg-inverse: #000000d9;
+
+  --sky-ui-border: #ffffff1f;
+  --sky-ui-border-hover: #ffffff40;
+  --sky-ui-focus: #ffffffb3;
+  --sky-ui-separator: #ffffff14;
+
+  --sky-ui-track: #ffffff14;
+  --sky-ui-track-on: #ffffffcc;
+  --sky-ui-thumb: #1a1a2e;
+  --sky-ui-indicator: #ffffffcc;
+  --sky-ui-muted-fill: #ffffff0a;
+  --sky-ui-muted-hover: #ffffff18;
+
+  --glass-bg: #16161a85;
+  --glass-border: #ffffff1f;
+  --glass-shadow-ring: 0 0 0 0.5px #ffffff0f;
+  --glass-shadow-ambient: 0 4px 12px #00000040;
+  --glass-shadow-drop: 0 12px 40px #00000073;
+  --glass-sheen-from: #ffffff0a;
+  --glass-sheen-to: #fff0;
+  --glass-blur: 24px;
+  --glass-saturation: 160%;
+}
+
+/* ── Twilight / civil (civil-dawn, civil-dusk) — warm dark ───────────────── */
+
+[data-sky="civil-dawn"],
+[data-sky="civil-dusk"] {
+  --sky-fg: #fff4e6f0; /* warm white */
+  --sky-fg-secondary: #ffe8cc80;
+  --sky-fg-tertiary: #ffd9a84d;
+  --sky-fg-disabled: #ffe8cc2e;
+  --sky-fg-inverse: #2d1a0a;
+
+  --sky-ui-border: #ffffff2a;
+  --sky-ui-border-hover: #ffffff50;
+  --sky-ui-focus: #ffddaacc;
+  --sky-ui-separator: #ffffff18;
+
+  --sky-ui-track: #ffffff18;
+  --sky-ui-track-on: #ffd090cc;
+  --sky-ui-thumb: #2d1a0a;
+  --sky-ui-indicator: #ffd090cc;
+  --sky-ui-muted-fill: #ffffff0d;
+  --sky-ui-muted-hover: #ffffff1c;
+
+  --glass-bg: #2d1a0a66;
+  --glass-border: #ffffff2a;
+  --glass-shadow-ring: 0 0 0 0.5px #ffffff10;
+  --glass-shadow-ambient: 0 4px 12px #00000050;
+  --glass-shadow-drop: 0 12px 40px #00000080;
+  --glass-sheen-from: #ffffff14;
+  --glass-sheen-to: #fff0;
+  --glass-blur: 22px;
+  --glass-saturation: 170%;
+  --glass-text: var(--sky-fg);
+  --glass-text-secondary: var(--sky-fg-secondary);
+}
+
+/* ── Golden hour (golden-morning, golden-evening) — warm amber ───────────── */
+
+[data-sky="golden-morning"],
+[data-sky="golden-evening"] {
+  --sky-fg: #2a1200e6; /* deep warm brown — readable on amber sky */
+  --sky-fg-secondary: #2a120080;
+  --sky-fg-tertiary: #2a12004d;
+  --sky-fg-disabled: #2a120033;
+  --sky-fg-inverse: #fff4e0f0;
+
+  --sky-ui-border: #2a120026;
+  --sky-ui-border-hover: #2a12004d;
+  --sky-ui-focus: #a05010cc;
+  --sky-ui-separator: #2a120014;
+
+  --sky-ui-track: #2a12000d;
+  --sky-ui-track-on: #a05010cc;
+  --sky-ui-thumb: #fff4e0;
+  --sky-ui-indicator: #a05010cc;
+  --sky-ui-muted-fill: #2a120008;
+  --sky-ui-muted-hover: #2a120014;
+
+  --glass-bg: #ffe0b26b;
+  --glass-border: #ffcc8080;
+  --glass-shadow-ring: 0 0 0 0.5px #a0501010;
+  --glass-shadow-ambient: 0 4px 12px #80300010;
+  --glass-shadow-drop: 0 12px 40px #8030001a;
+  --glass-sheen-from: #ffffff99;
+  --glass-sheen-to: #fff0;
+  --glass-blur: 20px;
+  --glass-saturation: 190%;
+}
+
+/* ── Morning — cool bright (same base tokens, slightly cooler tint) ───────── */
+
+[data-sky="morning"] {
+  /* inherits daytime defaults — no overrides needed */
+  /* Glass gets a subtle blue tint */
+  --glass-bg: #d4e8f56b;
+  --glass-border: #b8d8f080;
+  --glass-sheen-from: #ffffff90;
+}
+
+/* ── Midday / afternoon — pure daytime, strongest contrast ───────────────── */
+
+[data-sky="midday"],
+[data-sky="afternoon"] {
+  /* Pure daytime defaults are already set on [data-sky].
+     These phases get maximum contrast — bump slightly. */
+  --sky-fg: #000000e6;
+  --sky-fg-secondary: #0000008c;
+  --sky-ui-focus: #000000cc;
+
+  --glass-bg: #ffffff73;
+  --glass-sheen-from: #ffffff99;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   GLASS CARD UTILITY
+   The @utility declaration in neue.css should reference these vars.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/*
+  Your existing glass-card @utility already uses --glass-* vars, so it
+  automatically picks up the phase-specific overrides above.
+  No changes needed to the utility itself.
+
+  The only addition: use var(--sky-fg) / var(--sky-fg-secondary) for text
+  instead of hardcoded hex values:
+
+  @utility glass-card {
+    ...existing...
+    color: var(--sky-fg);              ← was #000000d9
+
+    & p, & span, & label    { color: var(--sky-fg); }
+    & .text-secondary        { color: var(--sky-fg-secondary); }
+  }
+*/
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   SHADCN COMPONENT OVERRIDES
+   Target shadcn tokens so all components respond automatically.
+   These only apply inside a [data-sky] ancestor.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Inputs, Textareas */
+[data-sky] .border-input,
+[data-sky] [data-slot="input"] {
+  border-color: var(--sky-ui-border);
+
+  &:hover {
+    border-color: var(--sky-ui-border-hover);
+  }
+  &:focus,
+  &:focus-visible {
+    border-color: var(--sky-ui-focus);
+    outline-color: var(--sky-ui-focus);
+    box-shadow: 0 0 0 2px
+      color-mix(in oklab, var(--sky-ui-focus) 25%, transparent);
+  }
+  &::placeholder {
+    color: var(--sky-fg-tertiary);
+  }
+  &:disabled {
+    color: var(--sky-fg-disabled);
+    border-color: var(--sky-ui-border);
+    opacity: 0.5;
+  }
+}
+
+/* Separators / dividers */
+[data-sky] [data-slot="separator"],
+[data-sky] hr,
+[data-sky] .divide-y > * + *,
+[data-sky] .divide-x > * + * {
+  border-color: var(--sky-ui-separator);
+  background-color: var(--sky-ui-separator);
+}
+
+/* Switch */
+[data-sky] [data-slot="switch"] {
+  background-color: var(--sky-ui-track);
+
+  &[data-state="checked"] {
+    background-color: var(--sky-ui-track-on);
+  }
+
+  [data-slot="switch-thumb"] {
+    background-color: var(--sky-ui-thumb);
+  }
+}
+
+/* Radio group */
+[data-sky] [data-slot="radio-group-item"] {
+  border-color: var(--sky-ui-border);
+  color: var(--sky-ui-indicator);
+
+  &[data-state="checked"] {
+    border-color: var(--sky-ui-indicator);
+    background-color: var(--sky-ui-indicator);
+    color: var(--sky-ui-thumb);
+  }
+  &:focus-visible {
+    outline-color: var(--sky-ui-focus);
+    box-shadow: 0 0 0 2px
+      color-mix(in oklab, var(--sky-ui-focus) 25%, transparent);
+  }
+}
+
+/* Checkbox */
+[data-sky] [data-slot="checkbox"] {
+  border-color: var(--sky-ui-border);
+
+  &[data-state="checked"] {
+    background-color: var(--sky-ui-indicator);
+    border-color: var(--sky-ui-indicator);
+    color: var(--sky-ui-thumb);
+  }
+  &:focus-visible {
+    outline-color: var(--sky-ui-focus);
+  }
+}
+
+/* Select trigger / combobox */
+[data-sky] [data-slot="select-trigger"],
+[data-sky] [cmdk-input] {
+  border-color: var(--sky-ui-border);
+  color: var(--sky-fg);
+
+  &:focus,
+  &:focus-visible {
+    border-color: var(--sky-ui-focus);
+    box-shadow: 0 0 0 2px
+      color-mix(in oklab, var(--sky-ui-focus) 25%, transparent);
+  }
+  &[data-placeholder] {
+    color: var(--sky-fg-tertiary);
+  }
+}
+
+/* Button — ghost / link variants */
+[data-sky] [data-slot="button"][data-variant="ghost"],
+[data-sky] [data-slot="button"][data-variant="link"] {
+  color: var(--sky-fg);
+
+  &:hover {
+    background-color: var(--sky-ui-muted-hover);
+  }
+  &:disabled {
+    color: var(--sky-fg-disabled);
+  }
+}
+
+/* Popover / dropdown content */
+[data-sky] [data-slot="popover-content"],
+[data-sky] [data-slot="dropdown-menu-content"],
+[data-sky] [data-slot="select-content"] {
+  /* Inherit glass vars set by the current sky phase */
+  /* background: var(--glass-bg); */
+  /* border-color: var(--glass-border); */
+  /* box-shadow:
+    var(--glass-shadow-ring), var(--glass-shadow-ambient),
+    var(--glass-shadow-drop);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation)); */
+  color: var(--sky-fg);
+}
+
+/* Label */
+[data-sky] label,
+[data-sky] [data-slot="label"] {
+  color: var(--sky-fg);
+}
+
+/* Disabled state — generic */
+[data-sky] [disabled],
+[data-sky] [aria-disabled="true"],
+[data-sky] [data-disabled] {
+  opacity: 0.45;
+  color: var(--sky-fg-disabled);
+}

@@ -68,8 +68,10 @@ const wrapDeg = (deg: number): number => ((deg % 360) + 360) % 360;
  * Reduces an angle to the range [0, 2π).
  * @param rad - Angle in radians (any value)
  */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const wrapRad = (rad: number): number =>
   ((rad % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 /**
  * Clamps a value to [-1, 1]. Guards Math.asin / Math.acos from

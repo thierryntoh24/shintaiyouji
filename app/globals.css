@@ -49,7 +49,8 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-  --breakpoint-tablet: 640px;
+  --breakpoint-mini: 640px;
+  --breakpoint-tablet: 769px;
   --breakpoint-laptop: 1024px;
   --breakpoint-desktop: 1280px;
 }
@@ -123,46 +124,6 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-@layer utilities {
-  /**
-   * Animated translating underline utility.
-   * Replaces default Tailwind underline behavior.
-   *
-   * - Uses ::after pseudo-element
-   * - Respects underline offset via CSS variable
-   * - Animates from left → right on hover/focus
-   */
-  a,
-  .underline {
-    @apply relative no-underline overflow-x-clip w-fit;
-  }
-
-  a::after,
-  .underline::after {
-    content: "";
-    position: absolute;
-    right: -1px;
-    height: 1px;
-    width: 0%;
-    background-color: currentColor;
-
-    /* Default offset fallback */
-    bottom: calc(-1 * var(--tw-underline-offset, 2px));
-
-    /* overflow: hidden; */
-    transition: all 0.5s cubic-bezier(1, 0, 0.29, 1);
-  }
-
-  a:hover::after,
-  a:focus-visible::after,
-  .underline:hover::after,
-  .underline:focus-visible::after {
-    left: -1px;
-    right: auto;
-    width: calc(100% + 1px);
-  }
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50 underline-offset-4;
@@ -181,7 +142,7 @@
   }
 
   a {
-    @apply underline-offset-4;
+    @apply hover:underline;
   }
 
   /* Custom scrollbar styling. Thanks @pranathiperii. */

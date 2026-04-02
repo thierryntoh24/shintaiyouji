@@ -16,6 +16,9 @@
  */
 type HourFormat = "12" | "24";
 
+/** Which solar time variant to display on the main clock. */
+type SolarTimeMode = "TST" | "MST";
+
 /**
  * Decomposed time parts for display.
  * All numeric fields are zero-padded to two characters.
@@ -59,4 +62,28 @@ interface ServerActionError {
   message?: string;
   status?: number;
   data?: Record<string, unknown>;
+}
+
+/**
+ * Global persisted user store for preferences and other global data.
+ * Add theme specific keys by creating a themse-specific persistent store
+ */
+interface UserStore {
+  /** Active theme name. Must match a key in the theme registry. */
+  theme: Themes;
+  /** True Solar Time or Mean Solar Time. */
+  solarMode: SolarTimeMode;
+  /** 24-hour display or 12-hour with AM/PM. */
+  hourFormat: HourFormat;
+  /**
+   * Temperature unit for weather display.
+   * Defaults to celsius; users in the US may prefer fahrenheit.
+   */
+  temperatureUnit: "celsius" | "fahrenheit";
+  /**
+   * **Recently accessed (mobile)**
+   * - Last 5 locations stored in `localStorage` under `"neue:data"`.
+   * - Shown in the persistent search drawer between search and home.
+   */
+  recents: GeocodingResult[];
 }

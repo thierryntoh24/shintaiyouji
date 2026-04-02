@@ -19,6 +19,7 @@ import {
   type GeocodingResult,
 } from "@/lib/geocoding";
 import { getTimezoneByCoordinates } from "@/lib/timezone";
+import logger from "@/utils/logger";
 
 // ---------------------------------------------------------------------------
 // Rate limiter
@@ -168,7 +169,7 @@ export async function geocode(params: GeocodeParams): Promise<GeocodeResult> {
   // Cache hit — skip rate limiter
   const cached = geocodeCache.get(cacheKey);
   if (cached) {
-    console.log("[geocode cahce hit]:", cached.longitude, cached.name);
+    logger.info("[Geo Cache Hit]:", cached.longitude, cached.name);
     return cached;
   }
 

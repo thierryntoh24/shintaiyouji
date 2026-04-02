@@ -292,7 +292,6 @@ export async function compareClockViaHttp(
       const offsetMs = systemTime.getTime() - correctedNetwork.getTime();
 
       setClockOffset(offsetMs);
-      console.warn("NTPS", offsetMs, ep.url);
 
       return {
         systemTime,

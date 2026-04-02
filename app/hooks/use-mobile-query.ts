@@ -7,6 +7,7 @@ interface MediaQueries {
   isTabletOrMobile: boolean;
   isTablet: boolean;
   isMobile: boolean;
+  isMini: boolean;
   isPortrait: boolean;
   isLandscape: boolean;
   isRetina: boolean;
@@ -18,8 +19,9 @@ interface MediaQueries {
  * @usage
  * ```js
  *const {
-     isMobile,
-     isTablet,
+     isMobile, //max 640px
+     isMini, // max 768px
+     isTablet, // 768 - 1024 px
      isDesktopOrLaptop,
      isPortrait,
      isLandscape,
@@ -32,6 +34,7 @@ interface MediaQueries {
 export function useMediaQueries(): MediaQueries {
   const [media, setMedia] = useState<MediaQueries>({
     isMobile: false,
+    isMini: false,
     isTablet: false,
     isTabletOrMobile: false,
     isDesktopOrLaptop: false,
@@ -51,10 +54,11 @@ export function useMediaQueries(): MediaQueries {
       ).matches;
 
       setMedia({
-        isMobile: width <= 768,
-        isTablet: width > 768 && width <= 1224,
-        isTabletOrMobile: width < 1224,
-        isDesktopOrLaptop: width > 1224,
+        isMobile: width <= 640,
+        isMini: width > 640 && width <= 768,
+        isTablet: width > 769 && width <= 1024,
+        isTabletOrMobile: width < 1024,
+        isDesktopOrLaptop: width > 1024,
         isBigScreen: width > 1824,
         isPortrait,
         isLandscape,

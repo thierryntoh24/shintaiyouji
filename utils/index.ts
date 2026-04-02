@@ -9,7 +9,7 @@
 import { GeocodingResult, LocationLabel } from "@/lib/geocoding";
 import { CoordinateTimeData } from "@/lib/timezone";
 import { HourlyWeather } from "@/lib/weather";
-import { FICTIONAL_LOCATIONS } from "@/types/consts";
+import { FICTIONAL_LOCATIONS, MAX_RECENT, RECENT_KEY } from "@/types/consts";
 import type { LucideIcon } from "lucide-react";
 import {
   Sun,
@@ -191,7 +191,7 @@ export function gmtLabel(
  */
 export function formatDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
-    weekday: "long",
+    weekday: "short",
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -346,4 +346,63 @@ export function makeFallbackResult(
     boundingBox: [0, 0, 0, 0],
     time,
   };
+}
+
+export interface FormattedEntry {
+  solar: string;
+  localTime: string;
+  period?: "AM" | "PM";
+  offset: string;
+}
+
+/**
+ * Formats a {@link SolarEventEntry} as a compact display string.
+ * Shows solar time followed by the civil local time in parentheses.
+ *
+ * @example `"06 : 14  (GMT+9 → 06 : 14)"`
+ *
+ * @param entry - The solar event entry to format.
+ * @param hourFormat - "12" or "24".
+ */
+
+export function fmtEntry(
+  entry: SolarEventEntry,
+  hourFormat: HourFormat,
+  seconds?: boolean,
+): FormattedEntry {
+  const fmt = (t: FormattedTime) =>
+    `${t.hh} : ${t.mm}${seconds ? ` : ` + t.ss : ""}`;
+  return {
+    solar: fmt(entry.solar),
+    localTime: fmt(entry.local),
+    period: hourFormat === "12" ? entry.local.period : undefined,
+    offset: entry.offset,
+  };
+}
+
+/**Load recents from local store */
+export function loadRecent(): GeocodingResult[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+/**Save recents to local store */
+export function saveRecent(location: GeocodingResult) {
+  const prev = loadRecent().filter(
+    (r) =>
+      !(
+        Math.abs(r.latitude - location.latitude) < 0.01 &&
+        Math.abs(r.longitude - location.longitude) < 0.01
+      ),
+  );
+  const next = [location, ...prev].slice(0, MAX_RECENT);
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+  } catch {
+    /* noop */
+  }
 }

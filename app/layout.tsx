@@ -1,23 +1,26 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { baseMetadata } from "@/lib/metadata";
 import "./globals.css";
-import { SITENAME } from "@/types/consts";
-import { getTheme } from "@/utils/get-theme";
-import NeueContext from "@/app/(themes)/neue/contexts";
+import fonts from "@/app/fonts";
+import { GlobalProvider } from "@/app/contexts/global-provider";
+import { Suspense } from "react";
+import { LoadingUI } from "@/app/(themes)/neue/components/loading";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+// export const metadata: Metadata = {
+//   title: SITENAME,
+//   description: "Time based purely on Earth’s rotation and geographic position",
+// };
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+/**
+ * Root layout metadata & viewport configuration.
+ */
+export const metadata: Metadata = baseMetadata;
 
-export const metadata: Metadata = {
-  title: SITENAME,
-  description: "Time based purely on Earth’s rotation and geographic position",
+/**
+ * Global viewport configuration including browser UI theming.
+ */
+export const viewport: Viewport = {
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({
@@ -25,16 +28,13 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // const theme = getTheme();
-
-  // const AppContext = theme.components.Context;
-
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <NeueContext>{children}</NeueContext>
+      <body className={`${fonts} antialiased`}>
+        {/* Global user state */}
+        <Suspense fallback={<LoadingUI />}>
+          <GlobalProvider>{children}</GlobalProvider>
+        </Suspense>
       </body>
     </html>
   );

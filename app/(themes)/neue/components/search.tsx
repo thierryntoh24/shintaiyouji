@@ -15,12 +15,12 @@
 import { useState } from "react";
 import {
   Popover,
-  PopoverContent,
+  PopoverGlassContent,
   PopoverTrigger,
 } from "@/app/components/ui/popover";
 import { Field, FieldGroup, FieldLabel } from "@/app/components/ui/field";
 import { Input } from "@/app/components/ui/input";
-import { useAppUI } from "@/app/(themes)/neue/contexts/app-ui-context";
+import { useNeue } from "@/app/(themes)/neue/contexts/ui-context";
 import { useGeocode } from "@/app/hooks/use-geocode";
 import { Button } from "@/app/components/ui/button";
 import { SearchIcon } from "lucide-react";
@@ -32,13 +32,21 @@ import {
 } from "@/app/components/ui/input-group";
 import { Separator } from "@/app/components/ui/separator";
 import { Spinner } from "@/app/components/ui/spinner-2";
+import { useGlobal } from "@/app/contexts/global-provider";
 
 /**
  * Location search popover.
  */
 export function SearchForm() {
-  const { setActive } = useAppUI();
+  const {
+    setActive,
+    store: {
+      data: { recents },
+      update,
+    },
+  } = useGlobal();
   const { search, reverse, loading, error, reset } = useGeocode();
+  const { skyPhase } = useNeue();
 
   const [query, setQuery] = useState("");
   const [lat, setLat] = useState("");
@@ -50,6 +58,8 @@ export function SearchForm() {
     const result = await search(query.trim());
     if (result) {
       setActive(result);
+      update({ recents: [result, ...recents] });
+
       setOpen(false);
     }
   }
@@ -61,6 +71,7 @@ export function SearchForm() {
     const result = await reverse(latN, lonN);
     if (result) {
       setActive(result);
+      update({ recents: [result, ...recents] });
       setOpen(false);
     }
   }
@@ -78,14 +89,13 @@ export function SearchForm() {
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <span className="underline underline-offset-4 cursor-pointer">
-          Search
-        </span>
+        <span className="hover:underline cursor-pointer">Search</span>
       </PopoverTrigger>
 
-      <PopoverContent
-        className="w-80 shadow-none gap-3 flex flex-col"
+      <PopoverGlassContent
+        className="w-80 gap-3 flex flex-col"
         align="start"
+        data-sky={skyPhase}
       >
         {/* <PopoverHeader>
           <PopoverDescription>Search a location</PopoverDescription>
@@ -102,10 +112,11 @@ export function SearchForm() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleTextSearch()}
+              className="outline-0 focus-visible:ring-0!"
             />
             <InputGroupAddon align="inline-end">
               <InputGroupButton
-                variant="secondary"
+                variant="outline"
                 className="text-xs"
                 onClick={handleTextSearch}
                 disabled={loading || (!!lat && !!lon)}
@@ -186,7 +197,7 @@ export function SearchForm() {
         </div>
 
         {error && <p className="text-xs text-destructive">{error}</p>}
-      </PopoverContent>
+      </PopoverGlassContent>
     </Popover>
   );
 }

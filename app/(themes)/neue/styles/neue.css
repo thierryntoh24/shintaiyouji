@@ -1,0 +1,282 @@
+@import "../../../globals.css";
+@import "./frosted-bg.css";
+@import "./sky-tokens.css";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   neue.css — Neue theme styles
+   ───────────────────────────────────────────────────────────────────────────── */
+
+@theme inline {
+  --text-md: 0.94rem;
+  --text-xs: 0.825rem;
+  --text-xxs: 0.75rem;
+  --font-serif: var(--font-newsreader);
+}
+
+/* ── Theme tokens ──────────────────────────────────────────────────────────── */
+
+[data-theme="neue"] {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark [data-theme="neue"] {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* ── Layout utilities ──────────────────────────────────────────────────────── */
+
+/**
+ * Main 8-column grid used for desktop header, footer, and data panel.
+ * On mobile (< mini breakpoint) falls back to a simple padded block —
+ * mobile layouts use flex/grid directly rather than neue-grid.
+ */
+@utility neue-grid {
+  @apply grid auto-rows-min gap-2 tablet:gap-5 px-5 mini:max-tablet:px-8 content-center grid-cols-3 tablet:grid-cols-6 desktop:grid-cols-8;
+}
+
+/**
+ * 4-column mini grid used inside cards and compact data displays.
+ * Collapses to 2 columns below the tablet breakpoint.
+ */
+@utility neue-grid-mini {
+  @apply grid auto-rows-min gap-4 content-center grid-cols-2 tablet:grid-cols-4;
+}
+
+/**
+ * 3-column mini grid used below the tablet breakpoint.
+ */
+@utility neue-grid-small {
+  @apply grid auto-rows-min gap-4 tablet:gap-5 content-center grid-cols-3;
+}
+
+/** 
+ * ── Hit-area expansion ──────────────────────────────────────────────────────
+ * Credit to @mtwsny (https://t.co/SM9DhPs5RY)
+*/
+
+@utility hit-area-* {
+  &::before {
+    content: "";
+    inset: calc(--value([length], [percentage]) * -1);
+    inset: calc(--spacing(--value(integer)) * -1);
+    @apply absolute;
+  }
+  @apply relative;
+}
+
+/* ── Transition utilities ──────────────────────────────────────────────────── */
+
+/**
+ * Slow, smooth transition for layout state changes (focus, expanded).
+ * 500 ms — perceptible but not sluggish.
+ */
+@utility transition-smooth {
+  @apply transition-all duration-500 ease-in-out;
+}
+
+/**
+ * Faster transition for interactive feedback (hover, toggle).
+ * 300 ms — snappy.
+ */
+@utility transition-smooth-short {
+  @apply transition-all duration-300 ease-in-out;
+}
+
+/* ── Glass utilities ───────────────────────────────────────────────────────── */
+
+/**
+ * Base glass effect — backdrop blur + translucent background.
+ * Works in both light and dark modes.
+ */
+@utility glass {
+  @apply relative rounded-xl backdrop-blur-md border;
+
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+
+  @variant dark {
+    background: rgba(15, 23, 42, 0.5);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 10px 40px rgba(0, 0, 0, 0.6),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* ── Sky gradient foreground helpers ──────────────────────────────────────── */
+
+/**
+ * Applied by `useSkyGradient` as a class on the root content wrapper.
+ * Enables smooth color transitions when the sky phase changes.
+ * Targets only color (not background) so it doesn't interfere with
+ * the background transition on the root div.
+ */
+.sky-text-transition {
+  transition: color 2s ease-in-out;
+}
+
+/* ── MapLibre control overrides ────────────────────────────────────────────── */
+
+/**
+ * MapLibre buttons default to `display: block`.
+ * Override to `flex` so custom icon buttons (HomeControl) align correctly.
+ */
+.maplibregl-ctrl-group button {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Glass component variants ──────────────────────────────────────────────── */
+
+@layer components {
+  .glass-strong {
+    @apply glass overflow-hidden;
+  }
+
+  .glass-strong::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      120deg,
+      rgba(255, 255, 255, 0.25),
+      rgba(255, 255, 255, 0.05) 40%,
+      transparent 60%
+    );
+    opacity: 0.6;
+
+    @variant dark {
+      opacity: 0.2;
+    }
+  }
+
+  .glass-soft {
+    @apply glass;
+    backdrop-filter: blur(6px);
+  }
+
+  .glass-heavy {
+    @apply glass;
+    backdrop-filter: blur(20px);
+  }
+
+  /* Darker glass for map overlay elements where sky is bright */
+  .glass-map {
+    @apply glass;
+    background: rgba(2, 6, 23, 0.4);
+  }
+}
+
+@utility glass-card {
+  padding: 14px 18px;
+  border-radius: var(--glass-radius);
+  width: max-content;
+  overflow: hidden;
+  pointer-events: auto;
+
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(var(--glass-blur))
+    saturate(var(--glass-saturation));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    var(--glass-shadow-ring), var(--glass-shadow-ambient),
+    var(--glass-shadow-drop);
+  color: var(--sky-fg);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: linear-gradient(
+      to bottom,
+      var(--glass-sheen-from) 0%,
+      var(--glass-sheen-to) 50%
+    );
+    pointer-events: none;
+  }
+
+  & p,
+  & span,
+  & label {
+    color: var(--sky-fg);
+  }
+  & .text-secondary {
+    color: var(--sky-fg-secondary);
+  }
+
+  & [data-secondary] {
+    color: var(--sky-fg-secondary);
+  }
+
+  @variant dark {
+  }
+}

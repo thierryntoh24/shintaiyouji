@@ -27,7 +27,7 @@ export const Spinner = React.forwardRef<SVGSVGElement, SpinnerProps>(
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="opacity-30"
+          className="opacity-20"
         />
 
         <path

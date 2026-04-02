@@ -1,36 +1,115 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 真の時間 — shin-no-jikan
 
-## Getting Started
+**True Solar Time, for wherever you are.**
 
-First, run the development server:
+A web app that shows what time it *actually* is — based on where the sun sits in the sky at your longitude, not what some committee decided in 1884.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+→ **[Live demo](https://true-time.vercel.app)**
+
+---
+
+## What is this?
+
+Your civil clock says 12:00. But solar noon — the moment the sun is highest in the sky — might actually be at 10:47, or 13:22, depending on where you live. That gap is real, and in some places it's enormous.
+
+This app shows:
+
+- **True Solar Time (TST)** — raw sun position, longitude-corrected plus the Equation of Time
+- **Mean Solar Time (MST)** — longitude-corrected only, without the wobble
+- Sun position, phase, altitude and azimuth
+- Twilight times, golden hour, solar noon
+- Moon phase, rise/set, distance
+- Live weather conditions
+- An interactive globe for picking any location
+
+---
+
+## Stack
+
+| Layer         | Tech                                                 |
+| ------------- | ---------------------------------------------------- |
+| Framework     | Next.js 15 (App Router)                              |
+| Styling       | Tailwind CSS v4                                      |
+| UI components | shadcn/ui                                            |
+| Map           | MapLibre GL + MapTiler                               |
+| Geocoding     | Nominatim / OpenStreetMap                            |
+| Timezone      | TimeAPI + TimeZoneDB (fallback)                      |
+| Weather       | Open-Meteo                                           |
+| Astronomy     | Custom engine — Meeus + NOAA SPA (zero runtime deps) |
+
+---
+
+## Architecture
+
+```
+app/
+├── (themes)/
+│   └── neue/               ← default theme
+│       ├── components/     ← header, footer, drawers, map
+│       ├── contexts/        ← app state, time format
+│       ├── hooks/           ← useActiveUrlSync
+│       └── page.tsx         ← main solar time page
+├── hooks/                  ← shared: useSolarTicker, useWeather, useSkyGradient…
+├── components/ui/          ← shadcn primitives
+lib/
+├── astronomy.ts            ← TST, sun/moon position, solar events (NOAA/Meeus)
+├── geocoding.ts            ← Nominatim wrapper
+├── weather.ts              ← Open-Meteo client
+├── timezone.ts             ← TimeAPI + TimeZoneDB client
+└── ntp.ts                  ← HTTP clock sync
+server/
+├── geocode.ts              ← server action (rate limit + LRU cache)
+├── weather.ts              ← server action (token bucket + LRU cache)
+└── timezone.ts             ← server action proxy
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The astronomy engine (`lib/astronomy.ts`) has zero runtime dependencies. All formulas are derived from Jean Meeus *Astronomical Algorithms* (2nd ed.) and the NOAA Solar Position Algorithm. Solar position accuracy is ±0.01°; solar event timing is ±30 s.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Themes
 
-## Learn More
+The core (`lib/`, `hooks/`, `server/`) is shared. UI lives in `app/(themes)/<name>/`. Anyone can build a theme on top of the same data pipeline without touching the engine.
 
-To learn more about Next.js, take a look at the following resources:
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for how themes work.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Running locally
 
-## Deploy on Vercel
+```bash
+git clone https://github.com/thierryntoh24/shintaiyouji
+cd shintaiyouji
+pnpm install
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Create `.env.local`:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```env
+NEXT_PUBLIC_MAPTILER_KEY=your_maptiler_key
+NEXT_PUBLIC_TIMEZONEDB_KEY=your_timezonedb_key   # optional fallback
+```
+
+```bash
+pnpm dev
+```
+
+MapTiler has a generous free tier. TimeZoneDB is only hit if TimeAPI is down, so the key is optional.
+
+---
+
+## Accuracy & limitations
+
+- Solar events (sunrise/sunset) are accurate to **±30 seconds** for most latitudes.
+- Near the poles, events like civil dawn may not occur — the app returns `null` gracefully.
+- The Equation of Time correction ranges from **−16 to +14 minutes** across the year; this is expected, not a bug.
+- Geocoding uses Nominatim (OpenStreetMap). Ocean coordinates or remote areas may return a fictional placeholder name (they're anime locations — this is intentional).
+- Clock sync uses HTTP round-trip estimation (NTP-style). Accuracy is **±50–200 ms**, sufficient to detect significant drift but not a stratum-1 replacement.
+
+---
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
+
+© 2026 Thierry Ntoh

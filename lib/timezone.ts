@@ -131,7 +131,6 @@ export interface CoordinateTimeData {
 export async function getTimezoneByCoordinates(
   latitude: number,
   longitude: number,
-  timezoneDbKey?: string,
 ): Promise<CoordinateTimeData | undefined> {
   // --- Primary: TimeAPI ---
   try {

@@ -13,7 +13,7 @@
  *   so there is no need for a separate current fetch.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchHourlyForecast } from "@/server/weather";
 import type { HourlyWeather, HourlyWeatherResponse } from "@/lib/weather";
 import type { WeatherOptions } from "@/lib/weather";
@@ -72,6 +72,9 @@ function currentHourSlot(hourly: HourlyWeather[]): HourlyWeather | null {
  * means repeated calls within the same hour return instantly from cache, so
  * re-fetching on location change is sufficient.
  *
+ * The `current` field is cleared to `null` immediately when `lat/lon` changes,
+ * eliminating the stale-data flash.
+ *
  * @param lat     - Latitude of the active location, or `undefined` during boot.
  * @param lon     - Longitude of the active location, or `undefined` during boot.
  * @param options - Optional unit and timezone preferences forwarded to Open-Meteo.
@@ -104,14 +107,26 @@ export function useWeather(
   // when the caller passes an inline object literal.
   const optionsKey = JSON.stringify(options ?? {});
 
-  async function load(
-    latitude: number,
-    longitude: number,
-    opts?: WeatherOptions,
-  ) {
-    setState((s) => ({ ...s, loading: true, error: null }));
+  // Keep options in a ref so the fetch function can always read the latest
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  }, [options]);
 
-    const result = await fetchHourlyForecast(latitude, longitude, opts);
+  const load = useCallback(async (latitude: number, longitude: number) => {
+    setState((s) => ({
+      ...s,
+      loading: true,
+      error: null,
+      // ── Stale flash fix: clear current immediately ──────────────────
+      current: null,
+    }));
+
+    const result = await fetchHourlyForecast(
+      latitude,
+      longitude,
+      optionsRef.current,
+    );
 
     if ("success" in result) {
       setState((s) => ({
@@ -128,19 +143,19 @@ export function useWeather(
       loading: false,
       error: null,
     });
-  }
+  }, []); // stable — reads options via ref
 
+  // Fetch when coordinates or options change
   useEffect(() => {
     if (lat == null || lon == null) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    load(lat, lon, options as any);
+    load(lat, lon);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lon, optionsKey]);
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     if (lat == null || lon == null) return;
-    load(lat, lon, options);
-  };
+    load(lat, lon);
+  }, [lat, lon]);
 
   return { ...state, refresh };
 }

@@ -1,7 +1,22 @@
 {
-  "name": "true-time",
+  "name": "shintaiyouji",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "author": {
+    "name": "Thierry Ntoh",
+    "email": "thierryntoh24@gmail.com",
+    "url": "https://x.com/thierryntoh23"
+  },
+  "description": "A web clock that calculates time based purely on Earth’s rotation and geographic position, not political time zones.",
+  "keywords": [
+    "true solar time",
+    "solar time",
+    "astronomy",
+    "longitude time",
+    "timezone alternative",
+    "equation of time",
+    "sun position"
+  ],
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -14,7 +29,7 @@
     "lru-cache": "^11.2.6",
     "lucide-react": "^0.577.0",
     "maplibre-gl": "^5.20.1",
-    "next": "15.2.4",
+    "next": "16.2.2",
     "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

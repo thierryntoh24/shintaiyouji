@@ -13,7 +13,7 @@ import type { LocationLabel } from "@/lib/geocoding";
 // ---------------------------------------------------------------------------
 
 /** Display name shown in the site header and page title. */
-export const SITENAME = "真の時間"; // true time
+export const SITENAME = "真太陽時"; // "真の時間"; // true time
 
 /** Short copyright line shown in the footer. */
 export const COPYRIGHT = `© 2026`;
@@ -29,10 +29,10 @@ export const COPYRIGHT_TITLE = `© 2026 Thierry Ntoh — Open Source Project (MI
  */
 export const SOCIALS: Record<string, { label: string; link: string }> = {
   github: {
-    link: "https://github.com/thierryntoh24/shin-no-jikan/commit/0baa9ea38b333736fa6778a2d13e6c70c738c1d5",
-    label: "Github ↗",
+    link: "https://github.com/thierryntoh24/shin-no-jikan/",
+    label: "Github",
   },
-  twitter: { link: "x.com/thierryntoh23", label: "@thierryntoh23 ↗" },
+  twitter: { link: "https://x.com/thierryntoh23", label: "@thierryntoh23" },
 };
 
 // ---------------------------------------------------------------------------
@@ -152,9 +152,9 @@ export const FICTIONAL_LOCATIONS: LocationLabel[] = [
     full: "Laagna City, Gjallarhorn Territory",
   },
   {
-    title: "Westalis",
-    subtitle: "Eastern Europe",
-    full: "Westalis, Eastern Europe",
+    title: "Pendragon",
+    subtitle: "Britannian Empire",
+    full: "Pendragon, Britannian Empire",
   },
   {
     title: "Piltover",
@@ -176,3 +176,7 @@ export const FICTIONAL_LOCATIONS: LocationLabel[] = [
 
 // Drift distance threshold
 export const DIST_THRESHOLD = 0.01; // ~1km
+
+// recents store
+export const RECENT_KEY = "geo:recent";
+export const MAX_RECENT = 5;

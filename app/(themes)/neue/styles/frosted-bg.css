@@ -1,0 +1,189 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   frosted-bg.css
+   Frosted-glass image background — refactored as Tailwind v4 functional
+   @utility declarations.
+
+   USAGE
+   ─────
+   Base class (required):
+     <div class="frosted-bg [--frosted-image:url('/photo.jpg')]">
+
+   Per-axis overrides — all accept bare theme keys, bare numbers, OR
+   arbitrary values in square brackets:
+
+     frosted-blur-*       sets --frosted-blur       (length)
+       frosted-blur-sm                → 20px
+       frosted-blur-md                → 40px  (same as base default)
+       frosted-blur-xl                → 70px
+       frosted-blur-[120px]           → 120px  (arbitrary)
+
+     frosted-wash-*       sets --frosted-wash        (0–100 integer → decimal)
+       frosted-wash-30                → 0.30
+       frosted-wash-45                → 0.45  (same as base default)
+       frosted-wash-75                → 0.75
+       frosted-wash-[0.6]             → 0.6   (arbitrary, passed through)
+
+     frosted-grain-*      sets --frosted-grain       (0–100 integer → decimal)
+       frosted-grain-35               → 0.35
+       frosted-grain-55               → 0.55  (same as base default)
+       frosted-grain-65               → 0.65
+       frosted-grain-[0.8]            → 0.8   (arbitrary, passed through)
+
+     frosted-dark         switches the wash to a dark (black) overlay
+       (static modifier — no value needed)
+
+   EXAMPLES
+   ────────
+   <!-- Default blur/wash/grain -->
+   <div class="frosted-bg [--frosted-image:url('/sky.jpg')]">
+
+   <!-- Custom blur, lighter wash, no grain -->
+   <div class="frosted-bg frosted-blur-[120px] frosted-wash-30 frosted-grain-0
+               [--frosted-image:url('/sky.jpg')]">
+
+   <!-- Dark mode wash -->
+   <div class="frosted-bg frosted-dark frosted-blur-xl
+               [--frosted-image:url('/sky.jpg')]">
+
+   <!-- Grain element (place as first child) -->
+   <span aria-hidden="true" class="frosted-grain" />
+
+   LAYER STACK (bottom → top)
+   ──────────────────────────
+   1. ::before  — blurred source image
+   2. ::after   — semi-transparent wash (white or dark)
+   3. .frosted-grain child — SVG noise overlay
+   4. Content
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── @theme: named blur presets ───────────────────────────────────────────── */
+/*
+   These drive `frosted-blur-sm`, `frosted-blur-md`, `frosted-blur-xl` etc.
+   You can add your own by extending --frosted-blur-* in your own @theme block.
+*/
+@theme {
+  --frosted-blur-sm: 20px;
+  --frosted-blur-md: 40px;
+  --frosted-blur-xl: 70px;
+}
+
+/* ── Base class ────────────────────────────────────────────────────────────── */
+
+@utility frosted-bg {
+  /* Default values — any functional utility below overrides just its variable */
+  --frosted-image: none;
+  --frosted-blur: 40px;
+  --frosted-wash: 0.45;
+  --frosted-grain: 0.55;
+  --frosted-wash-color: 255 255 255; /* white by default */
+
+  @apply relative isolate overflow-hidden backdrop-blur-xl;
+
+  /* Layer 1: blurred image */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -10%; /* overshoot so blur edges are hidden */
+    z-index: -2;
+    background-image: var(--frosted-image);
+    background-size: cover;
+    background-position: center;
+    filter: blur(var(--frosted-blur)) saturate(1.2);
+  }
+
+  /* Layer 2: colour wash */
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: rgb(var(--frosted-wash-color) / var(--frosted-wash));
+  }
+}
+
+/* ── frosted-blur-* ────────────────────────────────────────────────────────── */
+/*
+   Resolution order (first match wins per Tailwind's multi-declaration drop):
+   1. Bare named theme key  e.g. frosted-blur-sm  → --frosted-blur-sm (20px)
+   2. Bare number treated as px  e.g. frosted-blur-60  → 60px  (integer × 1px)
+   3. Arbitrary value  e.g. frosted-blur-[3rem]  → 3rem
+*/
+@utility frosted-blur-* {
+  --frosted-blur: --value(--frosted-blur-*); /* named presets first */
+  --frosted-blur: calc(--value(integer) * 1px); /* bare integer → px */
+  --frosted-blur: --value([length]); /* arbitrary length */
+}
+
+/* ── frosted-wash-* ────────────────────────────────────────────────────────── */
+/*
+   Accepts:
+   - Bare integer 0–100  → divided by 100   e.g. frosted-wash-45 → 0.45
+   - Arbitrary number    → used as-is       e.g. frosted-wash-[0.45]
+*/
+@utility frosted-wash-* {
+  --frosted-wash: calc(--value(integer) / 100); /* bare integer → 0–1 decimal */
+  --frosted-wash: --value([number]); /* arbitrary decimal as-is */
+}
+
+/* ── frosted-grain-* ───────────────────────────────────────────────────────── */
+/*
+   Same pattern as frosted-wash-*.
+   - Bare integer 0–100  e.g. frosted-grain-55 → 0.55
+   - Arbitrary number    e.g. frosted-grain-[0.55]
+*/
+@utility frosted-grain-* {
+  --frosted-grain: calc(--value(integer) / 100);
+  --frosted-grain: --value([number]);
+}
+
+/* ── frosted-image-* ───────────────────────────────────────────────────────── */
+/*
+   Accepts.
+   - Arbitrary url    e.g. frosted-image-[url('/img.jpg')]
+*/
+@utility frosted-image-* {
+  --frosted-grain: --value([url]);
+}
+
+/* ── frosted-dark ──────────────────────────────────────────────────────────── */
+/*
+   Static modifier: switches the wash overlay from white to black.
+   Apply alongside frosted-bg.
+   Default dark wash strength is 0.35 — override with frosted-wash-* if needed.
+*/
+/* @utility frosted-dark { */
+/* --frosted-wash-color: 0 0 0; */
+/* --frosted-wash: 0.35; sensible dark default; overrideable */
+/* } */
+
+/** Small / subtle */
+@utility frosted-bg-sm {
+  --frosted-blur: 20px;
+  --frosted-wash: 0.3;
+  --frosted-grain: 0.35;
+}
+
+/** Extra strong */
+@utility frosted-bg-xl {
+  --frosted-blur: 70px;
+  --frosted-wash: 0.55;
+  --frosted-grain: 0.65;
+}
+
+/* ── frosted-grain (child element) ────────────────────────────────────────── */
+/*
+   Place <span aria-hidden="true" class="frosted-grain" /> as the first child
+   of any .frosted-bg element. Its opacity is driven by --frosted-grain,
+   so frosted-grain-* on the parent controls it automatically.
+*/
+@utility frosted-grain {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: var(--frosted-grain, 0.55);
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+  mix-blend-mode: overlay;
+}

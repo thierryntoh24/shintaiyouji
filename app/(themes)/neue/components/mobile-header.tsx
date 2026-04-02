@@ -2,37 +2,33 @@
 
 /**
  * @file mobile-header.tsx
- * @description Mobile header and bottom drawer for the Neue theme.
+ * @description Mobile header strip and bottom drawer for the Neue theme.
  *
- * The header strip is intentionally minimal — site name, current date,
- * and a single trigger that opens the drawer. All navigation, search,
- * notifications, and the anchored home clock live inside the drawer.
+ * Used on both the main page and (in `mapMode`) on the map page.
  *
- * Drawer snap points:
- * - **Peek** (0.18): handle + search bar visible — quick search access
- * - **Half** (0.52): search + home clock + notifications visible
- * - **Full** (0.92): everything, including menu links
+ * Improvements over previous version:
+ * - `useHomeTicker` replaced with shared {@link useSolarTicker}
+ * - `useNotifications` logic no longer duplicated here
+ * - `MapMobileHeader` removed — the map page renders its own persistent
+ *   bottom drawer directly in `map.tsx`
+ * - Civil-time tick consolidated into a single `setInterval`
+ * - Options sub-drawer extracted to `options.tsx` → imported here
+ * - Snap-point state owned here; passed down to the drawer content
  *
- * Search modes toggle between forward (place name) and reverse (lat/lon).
+ * Snap points (main page):
+ * - **Half** (0.55): home clock + notifications visible
+ * - **Full** (0.95): menu + socials visible
+ *
+ * Snap points (map mode):
+ * - Persistent open at peek; search only
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { SITENAME } from "@/types/consts";
-import {
-  computeTrueSolarTime,
-  type TrueSolarTimeResult,
-} from "@/lib/astronomy";
-import {
-  formatDate,
-  formatDuration,
-  formatTime,
-  gmtLabel,
-  secsToMins,
-} from "@/utils";
+import { SITENAME, SOCIALS } from "@/types/consts";
+import { formatDate, formatTime, gmtLabel, fmtEntry } from "@/utils";
 import { nowDate } from "@/lib/ntp";
-import { useAppUI } from "@/app/(themes)/neue/contexts/app-ui-context";
-import { useTimeFormat } from "@/app/(themes)/neue/contexts/time-format-context";
+import { useNeue } from "@/app/(themes)/neue/contexts/ui-context";
 import { useGeocode } from "@/app/hooks/use-geocode";
 import { cn } from "@/lib/utils";
 import {
@@ -41,174 +37,76 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
+  NestedDrawer,
 } from "@/app/components/ui/drawer";
-import { Input } from "@/app/components/ui/input";
+import { Button } from "@/app/components/ui/button";
 import { Spinner } from "@/app/components/ui/spinner-2";
 import {
-  MapPinIcon,
-  SearchIcon,
-  ChevronUpIcon,
-  ArrowLeftRightIcon,
-  BellIcon,
-} from "lucide-react";
-import { Button } from "@/app/components/ui/button";
+  InputGroup,
+  InputGroupInput,
+  InputGroupAddon,
+} from "@/app/components/ui/input-group";
+import { FieldGroup, Field, FieldLabel } from "@/app/components/ui/field";
+import { Input } from "@/app/components/ui/input";
+import { SearchIcon, ChevronsUpDown } from "lucide-react";
+import {
+  NotificationList,
+  SectionLabel,
+  DrawerListItem,
+  PeriodBadge,
+} from "@/app/(themes)/neue/components/shared-ui";
+import { OptionsDrawerContent } from "@/app/(themes)/neue/components/options";
+import { useNotifications } from "@/app/(themes)/neue/hooks/use-notifications";
+import { useGlobal } from "@/app/contexts/global-provider";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Vaul snap points: peek → half → full */
-const SNAP_POINTS = [0.25, 0.52, 0.92] as const;
-type SnapPoint = (typeof SNAP_POINTS)[number];
+const SNAP_MAIN = [0.55, 0.95] as const;
+type SnapPoint = (typeof SNAP_MAIN)[number] | number | string | null;
 
 // ---------------------------------------------------------------------------
-// Hook — home TST ticker (shared with desktop header)
+// MobileHeader
 // ---------------------------------------------------------------------------
 
 /**
- * Returns a live-ticking {@link TrueSolarTimeResult} for a fixed home longitude.
- * Ticks once per second via rAF; recomputes EoT every 60 s for accuracy.
+ * Slim header strip for mobile viewports.
  *
- * @param longitude - Observer's home longitude, or undefined before geolocation resolves.
+ * @param mapMode - When true, renders the map-specific minimal variant
+ *   (logo only; map controls are pushed top-right by the map page).
  */
-function useHomeTicker(longitude?: number): TrueSolarTimeResult | undefined {
-  const [tst, setTST] = useState<TrueSolarTimeResult>();
-  const rafRef = useRef<number | null>(null);
-  const lastSecRef = useRef(-1);
-  const anchorTSTMsRef = useRef(0);
-  const anchorMSTMsRef = useRef(0);
-  const anchorPerfMsRef = useRef(0);
-  const lonRef = useRef(longitude);
-
-  useEffect(() => {
-    lonRef.current = longitude;
-  }, [longitude]);
-
-  useEffect(() => {
-    if (longitude == null) return;
-
-    const initial = computeTrueSolarTime(nowDate(), longitude);
-    anchorTSTMsRef.current = initial.trueSolarTime.getTime();
-    anchorMSTMsRef.current = initial.meanSolarTime.getTime();
-    anchorPerfMsRef.current = performance.now();
-    setTST(initial);
-
-    function tick() {
-      const elapsed = performance.now() - anchorPerfMsRef.current;
-      const tst = anchorTSTMsRef.current + elapsed;
-      const mst = anchorMSTMsRef.current + elapsed;
-      const sec = Math.floor(tst / 1_000);
-
-      if (sec !== lastSecRef.current) {
-        lastSecRef.current = sec;
-        if (sec % 60 === 0) {
-          const fresh = computeTrueSolarTime(nowDate(), lonRef.current!);
-          anchorTSTMsRef.current = fresh.trueSolarTime.getTime();
-          anchorMSTMsRef.current = fresh.meanSolarTime.getTime();
-          anchorPerfMsRef.current = performance.now();
-          setTST(fresh);
-        } else {
-          setTST((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  trueSolarTime: new Date(tst),
-                  meanSolarTime: new Date(mst),
-                }
-              : prev,
-          );
-        }
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    }
-
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [longitude]);
-
-  return tst;
-}
-
-// ---------------------------------------------------------------------------
-// Notification builder (mirrors desktop header logic)
-// ---------------------------------------------------------------------------
-
-/**
- * Computes the list of notification strings from current app state.
- * Kept as a pure function so it can be called in both the header strip
- * and the drawer without duplicating logic.
- */
-function useNotifications(): string[] {
-  const { active, activeRes, home, clockOffsetMs } = useAppUI();
-  const homeTST = useHomeTicker(home?.longitude);
-  const notifications: string[] = [];
-
-  const isViewingHome =
-    Math.abs((active?.longitude ?? 0) - (home?.longitude ?? 0)) < 0.01;
-
-  if (!isViewingHome && homeTST && activeRes && active && !!home?.longitude) {
-    const diffMin = activeRes.totalOffsetMinutes - homeTST.totalOffsetMinutes;
-    const dir = diffMin > 0 ? "ahead of" : "behind";
-    notifications.push(
-      `${active.label.title} is ${formatDuration(Math.abs(diffMin), "minutes")} ${dir} ${home.label.title}`,
-    );
-  }
-
-  if (activeRes && active?.time?.totalOffset != null) {
-    const civilOffsetMin = secsToMins(active.time.totalOffset);
-    const solarOffsetMin = activeRes.totalOffsetMinutes;
-    const diffMin = civilOffsetMin - solarOffsetMin;
-    if (Math.abs(diffMin) >= 0.5) {
-      const dir = diffMin > 0 ? "ahead of" : "behind";
-      notifications.push(
-        `The local time in ${active.label.title} is ${formatDuration(Math.abs(diffMin), "minutes")} ${dir} solar time`,
-      );
-    }
-  }
-
-  if (!isViewingHome && homeTST && home?.time?.totalOffset != null) {
-    const civilOffsetMin = secsToMins(home.time.totalOffset);
-    const solarOffsetMin = homeTST.totalOffsetMinutes;
-    const diffMin = civilOffsetMin - solarOffsetMin;
-    if (Math.abs(diffMin) >= 0.5) {
-      const dir = diffMin > 0 ? "ahead of" : "behind";
-      notifications.push(
-        `${home.label.title}'s local time is ${formatDuration(Math.abs(diffMin), "minutes")} ${dir} solar time`,
-      );
-    }
-  }
-
-  if (Math.abs(clockOffsetMs) > 1_000) {
-    const dir = clockOffsetMs > 0 ? "ahead of" : "behind";
-    notifications.push(
-      `Your system clock is ${formatDuration(Math.abs(clockOffsetMs), "ms")} ${dir} network time`,
-    );
-  }
-
-  return notifications;
-}
-
-// ---------------------------------------------------------------------------
-// Mobile header strip
-// ---------------------------------------------------------------------------
-
-/**
- * Slim mobile header — site name, active location date, and drawer trigger.
- * The trigger label reflects the notification count so users know there's
- * something to read before opening.
- */
-export function MobileHeader() {
-  const { activeRes, isFocus } = useAppUI();
-  const { solarMode } = useTimeFormat();
+export function MobileHeader({ mapMode = false }: { mapMode?: boolean }) {
+  const {
+    activeRes,
+    store: {
+      data: { solarMode },
+    },
+  } = useGlobal();
+  const { isFocus } = useNeue();
   const notifications = useNotifications();
-  const [snap, setSnap] = useState<SnapPoint | number | string | null>(
-    SNAP_POINTS[0],
-  );
+  const { reset } = useGeocode();
+
+  const [snap, setSnap] = useState<SnapPoint>(SNAP_MAIN[0]);
   const [open, setOpen] = useState(false);
 
-  if (isFocus) return null;
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) reset();
+  }
+
+  // Map mode: logo only, no drawer trigger (map has its own persistent drawer)
+  if (mapMode) {
+    return (
+      <header className="neue-grid py-2 items-center">
+        <div className=" py-1 px-2.5 rounded-sm w-fit bg-frosted-popover">
+          <Link href="/">
+            <span className="relative text-foreground">{SITENAME}</span>
+          </Link>
+        </div>
+      </header>
+    );
+  }
 
   const activeDate = activeRes
     ? solarMode === "TST"
@@ -217,45 +115,45 @@ export function MobileHeader() {
     : nowDate();
 
   return (
-    <header className="neue-grid pt-3 h-(--header-height) items-center">
-      {/* Site name */}
-      <Link href="/" className="col-span-2 tracking-tight">
+    <header className="neue-grid-small px-5 mini:px-8 pt-3 h-(--header-height) items-center">
+      {/* Logo */}
+      <Link href="/" className="tracking-tight">
         {SITENAME}
       </Link>
 
-      {/* Date — centre span */}
-      <div className="col-span-4 text-center tabular-nums opacity-80 text-xs">
+      {/* Active date */}
+      <div className="tabular-nums text-xs opacity-70 text-nowrap">
         {formatDate(activeDate)}
       </div>
 
-      {/* Drawer trigger */}
+      {/* Drawer trigger — hidden in focus mode */}
       <Drawer
         open={open}
-        onOpenChange={setOpen}
-        snapPoints={[...SNAP_POINTS]}
+        onOpenChange={handleOpenChange}
+        snapPoints={[...SNAP_MAIN]}
         activeSnapPoint={snap}
         setActiveSnapPoint={setSnap}
         direction="bottom"
-        // modal={false}
       >
         <DrawerTrigger asChild>
           <button
-            className="col-span-2 justify-self-end flex items-center gap-1 text-sm"
+            className={cn(
+              "justify-self-end flex items-center gap-1 transition-smooth",
+              isFocus ? "opacity-0 pointer-events-none" : "opacity-100",
+            )}
             aria-label="Open menu"
           >
-            <span className="">
-              [ search +{notifications.length > 0 && notifications.length}]
+            <span>
+              [ Search +{notifications.length > 0 && notifications.length}]
             </span>
           </button>
         </DrawerTrigger>
 
-        {/* <MobilevHeader /> */}
-
-        <MobilevHeader
+        <MobileDrawerContent
           snap={snap}
           setSnap={setSnap}
           notifications={notifications}
-          onClose={() => setOpen(false)}
+          onClose={() => handleOpenChange(false)}
         />
       </Drawer>
     </header>
@@ -263,34 +161,34 @@ export function MobileHeader() {
 }
 
 // ---------------------------------------------------------------------------
-// Drawer
+// MobileDrawerContent
 // ---------------------------------------------------------------------------
 
-interface MobileDrawerProps {
-  snap: SnapPoint | number | string | null;
-  setSnap: (s: SnapPoint | number | string) => void;
+interface DrawerContentProps {
+  snap: SnapPoint;
+  setSnap: (s: SnapPoint) => void;
   notifications: string[];
   onClose: () => void;
 }
 
 /**
- * Bottom-sheet drawer with three snap points.
+ * The drawer sheet body — search, home clock, notifications, menu.
  *
- * Contents:
- * - Drag handle + search bar (always in view at peek snap)
- * - Home clock strip (visible at half snap)
- * - Notifications (visible at half snap)
- * - Menu links (visible at full snap)
+ * Sections use opacity transitions tied to snap thresholds so content
+ * reveals progressively as the user drags up.
  */
-function MobileDrawer({
-  snap,
-  setSnap,
+function MobileDrawerContent({
   notifications,
   onClose,
-}: MobileDrawerProps) {
-  const { home, setActive } = useAppUI();
-  const { solarMode, hourFormat } = useTimeFormat();
-  const homeTST = useHomeTicker(home?.longitude);
+}: DrawerContentProps) {
+  const {
+    home,
+    homeRes,
+    setActive,
+    store: {
+      data: { recents, hourFormat, solarMode },
+    },
+  } = useGlobal();
 
   const [searchMode, setSearchMode] = useState<"forward" | "reverse">(
     "forward",
@@ -301,31 +199,23 @@ function MobileDrawer({
 
   const { search, reverse, loading, error, reset } = useGeocode();
 
-  const isAtLeastHalf = typeof snap === "number" && snap >= SNAP_POINTS[1];
-
-  const isAtFull = typeof snap === "number" && snap >= SNAP_POINTS[2];
-
-  // ── Solar home clock display values ────────────────────────────────────────
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 1_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const solarDate = homeTST
+  // Derived home clock values
+  const solarDate = homeRes
     ? solarMode === "TST"
-      ? homeTST.trueSolarTime
-      : homeTST.meanSolarTime
+      ? homeRes.trueSolarTime
+      : homeRes.meanSolarTime
     : null;
 
-  const solarParts = solarDate ? formatTime(solarDate, 0, hourFormat) : null;
-  const solarLabel = solarParts
-    ? `${solarParts.hh} : ${solarParts.mm}${hourFormat === "12" ? ` ${solarParts.period}` : ""}`
-    : "·· : ··";
-
-  const ct = formatTime(nowDate(), home?.time?.totalOffset, hourFormat);
-  const civilLabel = `${ct.hh} : ${ct.mm}${hourFormat === "12" ? ` ${ct.period}` : ""}`;
-  const offsetLabel = gmtLabel(home?.time?.totalOffset ?? 0);
+  const time = solarDate
+    ? fmtEntry(
+        {
+          solar: formatTime(solarDate, 0, hourFormat),
+          local: formatTime(nowDate(), home?.time?.totalOffset, hourFormat),
+          offset: gmtLabel(home?.time?.totalOffset ?? 0),
+        },
+        hourFormat,
+      )
+    : null;
 
   // ── Search handlers ─────────────────────────────────────────────────────────
 
@@ -356,10 +246,9 @@ function MobileDrawer({
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key !== "Enter") return;
-    searchMode === "forward" ? handleForwardSearch() : handleReverseSearch();
+    if (searchMode === "forward") handleForwardSearch();
+    else handleReverseSearch();
   }
-
-  // ── Toggle search mode ──────────────────────────────────────────────────────
 
   function toggleSearchMode() {
     setSearchMode((m) => (m === "forward" ? "reverse" : "forward"));
@@ -370,599 +259,238 @@ function MobileDrawer({
   }
 
   return (
-    <DrawerContent
-      className={cn(" data-[vaul-drawer-direction=bottom]:max-h-[97%] ")}
-    >
-      <DrawerHeader className="border-b px-4 pt-2 items-end gap-2">
-        {/* ── Drag handle ──────────────────────────────────────────────────── */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-foreground/20" />
-        </div>
-
-        <div className="grid grid-cols-[auto_1fr_auto] gap-1 content-center w-full">
-          <Button variant={"link"} className=" p-0 hit-area-2">
+    <DrawerContent className="data-[vaul-drawer-direction=bottom]:max-h-[97%] data-[vaul-drawer-direction=bottom]:h-screen">
+      {/* ── Header: search ─────────────────────────────────────────────── */}
+      <DrawerHeader className="border-b border-border/40 pt-0 items-start gap-0 w-full px-5 mini:px-8">
+        {/* Title row: close | mode toggle | search action */}
+        <div className="grid grid-cols-[1fr_3fr_1fr] gap-1 content-center w-full py-2.5">
+          <Button
+            variant="link"
+            onClick={() => {
+              setQuery("");
+              setLat("");
+              setLon("");
+              onClose();
+            }}
+            className="p-0 hit-area-2 justify-self-start text-sm"
+          >
             Close
           </Button>
-          <DrawerTitle className="flex items-center justify-center">
-            Search
+          <DrawerTitle
+            onClick={toggleSearchMode}
+            className="flex items-center justify-center gap-1 hit-area-2 cursor-pointer"
+          >
+            Search {searchMode === "forward" ? "place" : "coordinates"}
+            <ChevronsUpDown className="size-3 opacity-60" />
           </DrawerTitle>
-          <Button variant={"link"} disabled className="p-0 hit-area-2">
-            {1 ? <Spinner size={14} /> : "Search"}
+          <Button
+            variant="link"
+            size="sm"
+            onClick={
+              searchMode === "forward"
+                ? handleForwardSearch
+                : handleReverseSearch
+            }
+            disabled={
+              loading ||
+              (searchMode === "forward" ? !query.trim() : !lat || !lon)
+            }
+            className="p-0 hit-area-2 justify-self-end text-sm"
+          >
+            {loading ? <Spinner size={14} /> : "Search"}
           </Button>
         </div>
 
-        {/* ── Search section — always visible ──────────────────────────────── */}
-        <div className="px-4 pt-2 pb-3 shrink-0 flex flex-col gap-2">
-          {/* Mode toggle row */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs opacity-50 tracking-widest uppercase">
-              {searchMode === "forward" ? "Place" : "Coordinates"}
-            </span>
-            <button
-              onClick={toggleSearchMode}
-              className="flex items-center gap-1 text-xs opacity-60 hover:opacity-100 transition-opacity"
-              aria-label="Toggle search mode"
-            >
-              <ArrowLeftRightIcon className="size-3" />
-              {searchMode === "forward" ? "Use coordinates" : "Use place name"}
-            </button>
-          </div>
-
-          {/* Forward search */}
-          <div
-            className={cn(
-              "flex flex-col gap-2 transition-all duration-300 ease-in-out overflow-hidden",
-              searchMode === "forward"
-                ? "max-h-24 opacity-100"
-                : "max-h-0 opacity-0 pointer-events-none",
-            )}
-          >
-            <div className="relative flex items-center">
-              <SearchIcon className="absolute left-3 size-3.5 opacity-40" />
-              <input
-                type="text"
-                placeholder="Shibuya, Tokyo…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className={cn(
-                  "w-full pl-9 pr-16 py-2.5 text-sm rounded-sm",
-                  "bg-muted/60 border border-border/60",
-                  "outline-none focus:border-foreground/30",
-                  "placeholder:opacity-40 transition-colors",
-                )}
-              />
-              <button
-                onClick={handleForwardSearch}
-                disabled={loading || !query.trim()}
-                className={cn(
-                  "absolute right-2 px-2 py-1 text-xs rounded-sm",
-                  "bg-foreground text-background",
-                  "disabled:opacity-30 transition-opacity",
-                )}
-              >
-                {loading ? <Spinner size={12} /> : "Go"}
-              </button>
-            </div>
-          </div>
-
-          {/* Reverse search */}
-          <div
-            className={cn(
-              "flex flex-col gap-2 transition-all duration-300 ease-in-out overflow-hidden",
-              searchMode === "reverse"
-                ? "max-h-40 opacity-100"
-                : "max-h-0 opacity-0 pointer-events-none",
-            )}
-          >
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  {
-                    id: "lat",
-                    label: "Latitude",
-                    value: lat,
-                    set: setLat,
-                    placeholder: "35.6768…",
-                    min: -90,
-                    max: 90,
-                  },
-                  {
-                    id: "lon",
-                    label: "Longitude",
-                    value: lon,
-                    set: setLon,
-                    placeholder: "139.763…",
-                    min: -180,
-                    max: 180,
-                  },
-                ] as const
-              ).map(({ id, label, value, set, placeholder, min, max }) => (
-                <div key={id} className="flex flex-col gap-1">
-                  <label htmlFor={id} className="text-xs opacity-50">
-                    {label}
-                  </label>
-                  <input
-                    id={id}
-                    type="number"
-                    min={min}
-                    max={max}
-                    step="any"
-                    placeholder={placeholder}
-                    value={value}
-                    onChange={(e) => set(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className={cn(
-                      "w-full px-3 py-2.5 text-sm rounded-sm tabular-nums",
-                      "bg-muted/60 border border-border/60",
-                      "outline-none focus:border-foreground/30",
-                      "placeholder:opacity-40 transition-colors",
-                      "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                    )}
-                  />
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={handleReverseSearch}
-              disabled={loading || !lat || !lon}
-              className={cn(
-                "w-full py-2.5 text-sm rounded-sm",
-                "bg-foreground text-background",
-                "disabled:opacity-30 transition-opacity flex items-center justify-center gap-2",
-              )}
-            >
-              {loading ? (
-                <Spinner size={12} />
-              ) : (
-                <>
-                  <MapPinIcon className="size-3.5" />
-                  Lookup coordinates
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Error */}
-          {error && <p className="text-xs opacity-60 text-center">{error}</p>}
+        {/* Forward search input */}
+        <div
+          className={cn(
+            "w-full overflow-hidden transition-smooth",
+            searchMode === "forward"
+              ? "max-h-16 opacity-100"
+              : "max-h-0 opacity-0 pointer-events-none",
+          )}
+        >
+          <InputGroup className="has-[data-slot=input-group-control]:outline-0 h-11 has-[[data-slot=input-group-control]:focus-visible]:ring-0 rounded-lg">
+            <InputGroupInput
+              type="text"
+              placeholder="e.g. Shibuya, Tokyo"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleForwardSearch()}
+              autoComplete="off"
+            />
+            <InputGroupAddon align="inline-start">
+              <SearchIcon className="text-muted-foreground size-4" />
+            </InputGroupAddon>
+          </InputGroup>
         </div>
+
+        {/* Reverse search inputs */}
+        <div
+          className={cn(
+            "w-full overflow-hidden transition-smooth",
+            searchMode === "reverse"
+              ? "max-h-44 opacity-100"
+              : "max-h-0 opacity-0 pointer-events-none",
+          )}
+        >
+          <FieldGroup className="grid grid-cols-2 gap-3 pt-1">
+            {(
+              [
+                {
+                  id: "lat",
+                  label: "Latitude",
+                  value: lat,
+                  set: setLat,
+                  placeholder: "35.6768…",
+                  min: -90,
+                  max: 90,
+                },
+                {
+                  id: "lon",
+                  label: "Longitude",
+                  value: lon,
+                  set: setLon,
+                  placeholder: "139.763…",
+                  min: -180,
+                  max: 180,
+                },
+              ] as const
+            ).map(({ id, label, value, set, placeholder, min, max }) => (
+              <Field key={id} className="flex flex-col gap-1">
+                <FieldLabel htmlFor={id} className="text-xs opacity-50">
+                  {label}
+                </FieldLabel>
+                <Input
+                  id={id}
+                  type="number"
+                  min={min}
+                  max={max}
+                  step="any"
+                  placeholder={placeholder}
+                  value={value}
+                  onChange={(e) => set(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="tabular-nums h-11 rounded-lg outline-0 focus-visible:ring-0"
+                />
+              </Field>
+            ))}
+          </FieldGroup>
+        </div>
+
+        {error && (
+          <p className="text-destructive text-xs pt-2 opacity-80">{error}</p>
+        )}
       </DrawerHeader>
 
-      {/* ── Scrollable body — visible at half + full ──────────────────────── */}
-      <div
-        className={cn(
-          "flex-1 overflow-y-auto no-scrollbar px-4 flex flex-col gap-5 pb-10",
-          "transition-opacity duration-300",
-          isAtLeastHalf ? "opacity-100" : "opacity-0 pointer-events-none",
-        )}
-      >
-        {/* Home clock */}
-        <section className="flex flex-col gap-1">
-          <span className="text-xs opacity-40 tracking-widest uppercase">
-            Home
-          </span>
+      {/* ── Scrollable body ─────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto no-scrollbar px-5 mini:px-8 flex flex-col gap-5 py-4 pb-10">
+        {/* Menu — visible at full snap */}
+        <section className={cn("flex flex-col gap-2 transition-smooth")}>
+          <SectionLabel>Menu</SectionLabel>
+          <nav className="flex flex-col rounded-sm border border-border/40 overflow-hidden">
+            {/* Options nested drawer */}
+            <NestedDrawer>
+              <DrawerTrigger asChild>
+                <DrawerListItem>Options</DrawerListItem>
+              </DrawerTrigger>
+              <OptionsDrawerContent />
+            </NestedDrawer>
+
+            <DrawerListItem href="/map" isLast={false}>
+              Map
+            </DrawerListItem>
+            <DrawerListItem href="/about" isLast>
+              About
+            </DrawerListItem>
+          </nav>
+        </section>
+
+        {/* Home clock — visible at half snap */}
+        <section className={cn("flex flex-col gap-2 transition-smooth")}>
+          <SectionLabel>Home</SectionLabel>
           <button
             onClick={() => home && setActive(home)}
-            className="flex items-center justify-between py-3 px-4 rounded-sm bg-muted/40 border border-border/40 w-full text-left"
+            className="flex flex-col gap-1 py-3 px-4 rounded-sm bg-muted border border-border/40 w-full text-left"
           >
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-medium">
-                {home?.label.title ?? "—"}
+            <span className="font-medium truncate">
+              {home?.label.full ?? "—"}
+            </span>
+            <div className="flex justify-between gap-2 w-full text-sm">
+              <span className="flex items-center gap-1 tabular-nums">
+                {time?.solar}
+                <PeriodBadge period={time?.period} />
+                <span className="opacity-60 mx-1">
+                  ({time?.offset} → {time?.localTime}
+                </span>
+                <PeriodBadge period={time?.period} />
+                <span className="opacity-60">)</span>
               </span>
-              <span className="text-xs opacity-50">
-                {offsetLabel} · {civilLabel} civil
-              </span>
-            </div>
-            <div className="flex flex-col items-end gap-0.5">
-              <span className="tabular-nums font-mono text-sm">
-                {solarLabel}
-              </span>
-              <span className="text-xs opacity-40">{solarMode} solar</span>
+              <span className="opacity-40 shrink-0">[{solarMode}]</span>
             </div>
           </button>
         </section>
 
-        {/* Notifications */}
+        {/* Notifications — visible at half snap */}
         {notifications.length > 0 && (
-          <section className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs opacity-40 tracking-widest uppercase">
-                FYI
-              </span>
-              <span className="text-xs opacity-40">
-                <BellIcon className="size-3 inline-block" />{" "}
-                {notifications.length}
-              </span>
-            </div>
-            <ul className="flex flex-col gap-1 rounded-sm border border-border/40 overflow-hidden">
-              {notifications.map((msg, i) => (
-                <li
-                  key={i}
-                  className={cn(
-                    "grid grid-cols-[1.5rem_1fr] gap-2 px-4 py-3 text-sm",
-                    i < notifications.length - 1 && "border-b border-border/30",
-                  )}
-                >
-                  <span className="font-mono opacity-40 mt-px">[•]</span>
-                  <span className="leading-snug">{msg}</span>
-                </li>
-              ))}
-            </ul>
+          <section className={cn("flex flex-col gap-2 transition-smooth")}>
+            <SectionLabel badge={notifications.length}>FYI</SectionLabel>
+            <NotificationList items={notifications} />
           </section>
         )}
 
-        {/* Menu — only at full snap */}
-        <section
-          className={cn(
-            "flex flex-col gap-2 transition-opacity duration-300",
-            isAtFull ? "opacity-100" : "opacity-0 pointer-events-none",
-          )}
-        >
-          <span className="text-xs opacity-40 tracking-widest uppercase">
-            Menu
-          </span>
+        {/* Recently accessed */}
+        {recents.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <SectionLabel>Recent</SectionLabel>
+            <div className="flex flex-col rounded-sm border border-border/40 overflow-hidden">
+              {recents.map((loc, i) => (
+                <button
+                  key={`${loc.latitude}${loc.longitude}`}
+                  onClick={() => {
+                    setActive(loc);
+                    onClose();
+                  }}
+                  className={cn(
+                    "flex items-center justify-between px-4 py-3 text-sm w-full text-left",
+                    "bg-muted hover:bg-muted/60 transition-colors",
+                    i < recents.length - 1 && "border-b border-border/60",
+                  )}
+                >
+                  <span className="truncate">{loc.label.title}</span>
+                  <span className="text-xs opacity-50 shrink-0 ml-2">
+                    {loc.label.subtitle}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Socials — visible at full snap */}
+        <section className={cn("flex flex-col gap-2 transition-smooth")}>
+          <SectionLabel>Connect</SectionLabel>
           <nav className="flex flex-col rounded-sm border border-border/40 overflow-hidden">
-            {(
-              [
-                { label: "Map", href: "/map" },
-                { label: "Options", href: "#" },
-                { label: "About", href: "#" },
-              ] as const
-            ).map(({ label, href }, i, arr) => (
+            {Object.entries(SOCIALS).map(([key, { label, link }], i, arr) => (
               <Link
-                key={label}
-                href={href}
+                key={key}
+                href={link}
                 className={cn(
-                  "grid grid-cols-[1.5rem_1fr] gap-2 px-4 py-3.5 text-sm",
-                  "hover:bg-muted/40 transition-colors",
-                  i < arr.length - 1 && "border-b border-border/30",
+                  "grid grid-cols-[2rem_1fr] gap-2 px-4 py-3.5 text-sm w-full",
+                  "bg-muted hover:bg-muted/60 transition-colors",
+                  i < arr.length - 1 && "border-b border-border/60",
                 )}
               >
                 <span className="font-mono opacity-40">[→]</span>
-                {label}
+                <div className="flex items-center w-full justify-between">
+                  <span className="capitalize">{key}</span>
+                  <span className="text-xs opacity-50">{label}</span>
+                </div>
               </Link>
             ))}
           </nav>
         </section>
       </div>
     </DrawerContent>
-  );
-}
-
-export function MobilevHeader({
-  snap,
-  setSnap,
-  notifications,
-  onClose,
-}: MobileDrawerProps) {
-  const { home, setActive } = useAppUI();
-  const { solarMode, hourFormat } = useTimeFormat();
-  const homeTST = useHomeTicker(home?.longitude);
-
-  const [searchMode, setSearchMode] = useState<"forward" | "reverse">(
-    "forward",
-  );
-  const [query, setQuery] = useState("");
-  const [lat, setLat] = useState("");
-  const [lon, setLon] = useState("");
-
-  const { search, reverse, loading, error, reset } = useGeocode();
-
-  const isAtLeastHalf = typeof snap === "number" && snap >= SNAP_POINTS[1];
-
-  const isAtFull = typeof snap === "number" && snap >= SNAP_POINTS[2];
-
-  // ── Solar home clock display values ────────────────────────────────────────
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 1_000);
-    return () => clearInterval(id);
-  }, []);
-
-  const solarDate = homeTST
-    ? solarMode === "TST"
-      ? homeTST.trueSolarTime
-      : homeTST.meanSolarTime
-    : null;
-
-  const solarParts = solarDate ? formatTime(solarDate, 0, hourFormat) : null;
-  const solarLabel = solarParts
-    ? `${solarParts.hh} : ${solarParts.mm}${hourFormat === "12" ? ` ${solarParts.period}` : ""}`
-    : "·· : ··";
-
-  const ct = formatTime(nowDate(), home?.time?.totalOffset, hourFormat);
-  const civilLabel = `${ct.hh} : ${ct.mm}${hourFormat === "12" ? ` ${ct.period}` : ""}`;
-  const offsetLabel = gmtLabel(home?.time?.totalOffset ?? 0);
-
-  // ── Search handlers ─────────────────────────────────────────────────────────
-
-  async function handleForwardSearch() {
-    if (!query.trim()) return;
-    const result = await search(query.trim());
-    if (result) {
-      setActive(result);
-      reset();
-      setQuery("");
-      onClose();
-    }
-  }
-
-  async function handleReverseSearch() {
-    const latN = parseFloat(lat);
-    const lonN = parseFloat(lon);
-    if (isNaN(latN) || isNaN(lonN)) return;
-    const result = await reverse(latN, lonN);
-    if (result) {
-      setActive(result);
-      reset();
-      setLat("");
-      setLon("");
-      onClose();
-    }
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key !== "Enter") return;
-    searchMode === "forward" ? handleForwardSearch() : handleReverseSearch();
-  }
-
-  // ── Toggle search mode ──────────────────────────────────────────────────────
-
-  function toggleSearchMode() {
-    setSearchMode((m) => (m === "forward" ? "reverse" : "forward"));
-    reset();
-    setQuery("");
-    setLat("");
-    setLon("");
-  }
-
-  return (
-    // <Drawer
-    //   snapPoints={snapPoints}
-    //   activeSnapPoint={snap}
-    //   setActiveSnapPoint={setSnap}
-    //   direction="bottom"
-    // >
-    //   <DrawerTrigger className="relative flex h-10 flex-shrink-0 items-center justify-center gap-2 overflow-hidden rounded-full bg-white px-4 text-sm font-medium shadow-sm transition-all hover:bg-[#FAFAFA] dark:bg-[#161615] dark:hover:bg-[#1A1A19] dark:text-white">
-    //     Open Drawer
-    //   </DrawerTrigger>
-    <DrawerContent
-      className="data-[vaul-drawer-direction=bottom]:max-h-[97%] data-[vaul-drawer-direction=bottom]:mt-[unset]"
-      // className="fixed flex flex-col bg-white border border-gray-200 border-b-none rounded-t-[10px] bottom-0 left-0 right-0 h-full max-h-[97%] mx-[-1px]"
-    >
-      {" "}
-      <DrawerHeader className="border-b px-4 pt-2 items-end gap-2">
-        <div className="grid grid-cols-[auto_1fr_auto] gap-1 content-center w-full">
-          <Button variant={"link"} className=" p-0 hit-area-2">
-            Close
-          </Button>
-          <DrawerTitle className="flex items-center justify-center">
-            Search
-          </DrawerTitle>
-          <Button variant={"link"} disabled className="p-0 hit-area-2">
-            {1 ? <Spinner size={14} /> : "Search"}
-          </Button>
-        </div>
-
-        {/* ── Search section — always visible ──────────────────────────────── */}
-        <div className="px-4 pt-2 pb-3 shrink-0 flex flex-col gap-2">
-          {/* Mode toggle row */}
-          <div className="flex items-center justify-between">
-            <span className="text-xs opacity-50 tracking-widest uppercase">
-              {searchMode === "forward" ? "Place" : "Coordinates"}
-            </span>
-            <button
-              onClick={toggleSearchMode}
-              className="flex items-center gap-1 text-xs opacity-60 hover:opacity-100 transition-opacity"
-              aria-label="Toggle search mode"
-            >
-              <ArrowLeftRightIcon className="size-3" />
-              {searchMode === "forward" ? "Use coordinates" : "Use place name"}
-            </button>
-          </div>
-
-          {/* Forward search */}
-          <div
-            className={cn(
-              "flex flex-col gap-2 transition-all duration-300 ease-in-out overflow-hidden",
-              searchMode === "forward"
-                ? "max-h-24 opacity-100"
-                : "max-h-0 opacity-0 pointer-events-none",
-            )}
-          >
-            <div className="relative flex items-center">
-              <SearchIcon className="absolute left-3 size-3.5 opacity-40" />
-              <input
-                type="text"
-                placeholder="Shibuya, Tokyo…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className={cn(
-                  "w-full pl-9 pr-16 py-2.5 text-sm rounded-sm",
-                  "bg-muted/60 border border-border/60",
-                  "outline-none focus:border-foreground/30",
-                  "placeholder:opacity-40 transition-colors",
-                )}
-              />
-              <button
-                onClick={handleForwardSearch}
-                disabled={loading || !query.trim()}
-                className={cn(
-                  "absolute right-2 px-2 py-1 text-xs rounded-sm",
-                  "bg-foreground text-background",
-                  "disabled:opacity-30 transition-opacity",
-                )}
-              >
-                {loading ? <Spinner size={12} /> : "Go"}
-              </button>
-            </div>
-          </div>
-
-          {/* Reverse search */}
-          <div
-            className={cn(
-              "flex flex-col gap-2 transition-all duration-300 ease-in-out overflow-hidden",
-              searchMode === "reverse"
-                ? "max-h-40 opacity-100"
-                : "max-h-0 opacity-0 pointer-events-none",
-            )}
-          >
-            <div className="grid grid-cols-2 gap-2">
-              {(
-                [
-                  {
-                    id: "lat",
-                    label: "Latitude",
-                    value: lat,
-                    set: setLat,
-                    placeholder: "35.6768…",
-                    min: -90,
-                    max: 90,
-                  },
-                  {
-                    id: "lon",
-                    label: "Longitude",
-                    value: lon,
-                    set: setLon,
-                    placeholder: "139.763…",
-                    min: -180,
-                    max: 180,
-                  },
-                ] as const
-              ).map(({ id, label, value, set, placeholder, min, max }) => (
-                <div key={id} className="flex flex-col gap-1">
-                  <label htmlFor={id} className="text-xs opacity-50">
-                    {label}
-                  </label>
-                  <input
-                    id={id}
-                    type="number"
-                    min={min}
-                    max={max}
-                    step="any"
-                    placeholder={placeholder}
-                    value={value}
-                    onChange={(e) => set(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    className={cn(
-                      "w-full px-3 py-2.5 text-sm rounded-sm tabular-nums",
-                      "bg-muted/60 border border-border/60",
-                      "outline-none focus:border-foreground/30",
-                      "placeholder:opacity-40 transition-colors",
-                      "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
-                    )}
-                  />
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={handleReverseSearch}
-              disabled={loading || !lat || !lon}
-              className={cn(
-                "w-full py-2.5 text-sm rounded-sm",
-                "bg-foreground text-background",
-                "disabled:opacity-30 transition-opacity flex items-center justify-center gap-2",
-              )}
-            >
-              {loading ? (
-                <Spinner size={12} />
-              ) : (
-                <>
-                  <MapPinIcon className="size-3.5" />
-                  Lookup coordinates
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Error */}
-          {error && <p className="text-xs opacity-60 text-center">{error}</p>}
-        </div>
-      </DrawerHeader>
-      <div
-        className={cn("flex flex-col max-w-md mx-auto w-full p-4 pt-5", {
-          "overflow-y-auto": snap === 1,
-          "overflow-hidden": snap !== 1,
-        })}
-      >
-        <p className="text-sm mt-1 text-gray-600 mb-6">
-          40 videos, 20+ exercises
-        </p>
-        <p className="text-gray-600">
-          The world of user interface design is an intricate landscape filled
-          with hidden details and nuance. In this course, you will learn
-          something cool. To the untrained eye, a beautifully designed UI.
-        </p>
-        <button className="bg-black text-gray-50 mt-8 rounded-md h-[48px] flex-shrink-0 font-medium">
-          Buy for $199
-        </button>
-        <div className="mt-12">
-          <h2 className="text-xl font-medium text-gray-900">
-            Module 01. The Details
-          </h2>
-          <div className="space-y-4 mt-4">
-            <div>
-              <span className="block text-gray-900">Layers of UI</span>
-              <span className="text-gray-600">
-                A basic introduction to Layers of Design.
-              </span>
-            </div>
-            <div>
-              <span className="block text-gray-900">Typography</span>
-              <span className="text-gray-600">The fundamentals of type.</span>
-            </div>
-            <div>
-              <span className="block text-gray-900">UI Animations</span>
-              <span className="text-gray-600">
-                Going through the right easings and durations.
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="mt-12">
-          <figure>
-            <blockquote className="font-serif text-gray-900">
-              “I especially loved the hidden details video. That was so useful,
-              learned a lot by just reading it. Can&rsquo;t wait for more course
-              content!”
-            </blockquote>
-            <figcaption>
-              <span className="text-sm text-gray-600 mt-2 block">
-                Yvonne Ray, Frontend Developer
-              </span>
-            </figcaption>
-          </figure>
-        </div>
-        <div className="mt-12">
-          <h2 className="text-xl font-medium text-gray-900">
-            Module 02. The Process
-          </h2>
-          <div className="space-y-4 mt-4">
-            <div>
-              <span className="block text-gray-900">Build</span>
-              <span className="text-gray-600">
-                Create cool components to practice.
-              </span>
-            </div>
-            <div>
-              <span className="block text-gray-900">User Insight</span>
-              <span className="text-gray-600">
-                Find out what users think and fine-tune.
-              </span>
-            </div>
-            <div>
-              <span className="block text-gray-900">
-                Putting it all together
-              </span>
-              <span className="text-gray-600">
-                Let&apos;s build an app together and apply everything.
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </DrawerContent>
-    // </Drawer>
   );
 }

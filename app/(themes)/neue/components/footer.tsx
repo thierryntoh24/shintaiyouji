@@ -13,34 +13,23 @@
  */
 
 import Link from "next/link";
-import { useCallback } from "react";
 import { COPYRIGHT, COPYRIGHT_TITLE, SOCIALS } from "@/types/consts";
-import { useAppUI } from "@/app/(themes)/neue/contexts/app-ui-context";
+import { useNeue } from "@/app/(themes)/neue/contexts/ui-context";
 import { cn } from "@/lib/utils";
 
 /**
  * Site footer component.
  */
 export default function Footer() {
-  const { isFocus, toggleFocus, isExpanded, toggleExpanded } = useAppUI();
-
-  const requestBrowserFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {
-        // Browser may deny (e.g. in an iframe) — fail silently
-      });
-    } else {
-      document.exitFullscreen().catch(() => {});
-    }
-  }, []);
+  const { isFocus, toggleFocus, isExpanded, toggleExpanded } = useNeue();
 
   return (
-    <footer className="h-(--header-height) neue-grid items-center py-2">
-      <div className="col-span-2" title={COPYRIGHT_TITLE}>
+    <footer className="h-(--header-height) pb-3 mini:max-tablet:px-8 neue-grid items-center py-2">
+      <div className="tablet:col-span-2" title={COPYRIGHT_TITLE}>
         <span>{COPYRIGHT}</span>
       </div>
 
-      <div className="col-start-5 justify-self-end">
+      <div className="desktop:col-start-5 tablet:justify-self-end">
         <button
           onClick={toggleFocus}
           className="hover:underline underline-offset-4 transition-smooth"
@@ -49,42 +38,41 @@ export default function Footer() {
         </button>
       </div>
 
-      {!isFocus && (
-        <div className="col-span-2">
-          <button
-            onClick={toggleExpanded}
-            className="underline underline-offset-4"
-          >
-            {isExpanded ? "LESS" : "MORE"}
-          </button>
-        </div>
-      )}
-
-      {/* {!!isFocus && (
-        <div className="col-span-2">
-          <button
-            onClick={requestBrowserFullscreen}
-            className="underline underline-offset-4"
-          >
-            FULLSCREEN
-          </button>
-        </div>
-      )} */}
+      <div
+        className={cn(
+          "desktop:col-span-2 transition-smooth-short max-tablet:justify-self-end",
+          !isFocus ? "opacity-100" : "opacity-0 pointer-events-none",
+        )}
+      >
+        <button
+          onClick={toggleExpanded}
+          className="hover:underline underline-offset-4"
+        >
+          {isExpanded ? "LESS" : "MORE"}
+        </button>
+      </div>
 
       {/* Socials overflow upward */}
       <div
         className={cn(
-          "flex flex-col-reverse h-(--header-height) pb-2 transition-smooth",
+          "max-tablet:hidden tablet:max-desktop:col-span-2 flex flex-col-reverse h-(--header-height) pb-3 gap-1 transition-smooth items-end",
           !isFocus
             ? "opacity-100"
             : "opacity-0 pointer-events-none select-none",
         )}
       >
-        {Object.entries(SOCIALS).map(([key, { label, link }]) => (
-          <Link key={key} href={link}>
-            {label}
-          </Link>
-        ))}
+        {Object.entries(SOCIALS)
+          .reverse()
+          .map(([key, { label, link }]) => (
+            <Link
+              key={key}
+              href={link}
+              rel="noreferrer nofollow"
+              target="_blank"
+            >
+              {label} ↗
+            </Link>
+          ))}
       </div>
     </footer>
   );

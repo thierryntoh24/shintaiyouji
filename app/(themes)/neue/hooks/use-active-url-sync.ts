@@ -24,10 +24,10 @@
 import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { geocode } from "@/server/geocode";
-import { useAppUI } from "@/app/(themes)/neue/contexts/app-ui-context";
 import { getTimezone } from "@/server/timezone";
 import { makeFallbackResult } from "@/utils";
 import logger from "@/utils/logger";
+import { useGlobal } from "@/app/contexts/global-provider";
 
 // ---------------------------------------------------------------------------
 // Hook
@@ -46,7 +46,7 @@ export function useActiveUrlSync() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { status, active, setActive, setStatus } = useAppUI();
+  const { status, active, setActive, setStatus } = useGlobal();
 
   const paramHandled = useRef(false);
   const lastSyncedCoords = useRef<{ lat: number; lon: number } | null>(null);
@@ -56,6 +56,9 @@ export function useActiveUrlSync() {
   // -------------------------------------------------------------------------
 
   useEffect(() => {
+    // const override = searchParams.get("override");
+
+    // if (!(status === "geocoding" || status === "ready")) return;
     if (paramHandled.current || status !== "geocoding") return;
 
     const latParam = searchParams.get("lat");
