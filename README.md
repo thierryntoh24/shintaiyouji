@@ -4,7 +4,7 @@
 
 A web app that shows what time it *actually* is — based on where the sun sits in the sky at your longitude, not what some committee decided in 1884.
 
-→ **[Live demo](https://true-time.vercel.app)**
+→ **[Live demo](https://shintaiyouji.vercel.app)**
 
 ---
 
