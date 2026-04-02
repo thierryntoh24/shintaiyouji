@@ -39,6 +39,7 @@ import { Separator } from "@/app/components/ui/separator";
 import { useNeue } from "@/app/(themes)/neue/contexts/ui-context";
 import { fonts } from "@/app/(themes)/neue/fonts";
 import { useGlobal } from "@/app/contexts/global-provider";
+import { title } from "process";
 
 // ---------------------------------------------------------------------------
 // Shared settings body
@@ -72,11 +73,20 @@ function SettingsBody({ compact = false }: { compact?: boolean }) {
         >
           {(
             [
-              { value: "TST", label: "True Solar Time" },
-              { value: "MST", label: "Mean Solar Time" },
+              {
+                value: "TST",
+                label: "True Solar Time",
+                title: "actual sun position, longitude-corrected plus the EoT",
+              },
+              {
+                value: "MST",
+                label: "Mean Solar Time",
+                title: "longitude-corrected only, without EoT",
+              },
             ] as const
-          ).map(({ value, label }, i) => (
+          ).map(({ value, label, title }, i) => (
             <div
+              title={title}
               key={value}
               className={cn(
                 "flex  items-center gap-2 px-4 py-3 cursor-pointer w-full",

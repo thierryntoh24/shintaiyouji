@@ -15,12 +15,12 @@ export function LoadingUI({
     <Empty className="h-dvh w-screen overflow-clip">
       <EmptyHeader className="gap-4">
         <Spinner className="size-16" strokeWidth={2} />
-        {!!message && (
-          <EmptyDescription className="flex flex-col gap-1 text-primary font-semibold">
-            <span>{message.description}</span>
-            <span>{message.instruction}</span>
-          </EmptyDescription>
-        )}
+        {/* {!!message && ( */}
+        <EmptyDescription className="flex flex-col gap-1 text-primary font-semibold">
+          <span>太陽に同期しています…</span>
+          <span className="text-xs">( Syncing with the sun… )</span>
+        </EmptyDescription>
+        {/* )} */}
       </EmptyHeader>
     </Empty>
   );

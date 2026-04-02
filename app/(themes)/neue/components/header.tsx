@@ -146,7 +146,7 @@ export function MapHeader() {
         <div className="flex items-center gap-2">
           <SearchForm />
           <Options />
-          <Link href="#">About</Link>
+          <Link href="/about">About</Link>
         </div>
       </div>
 
